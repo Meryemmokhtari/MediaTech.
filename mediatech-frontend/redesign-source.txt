@@ -1,0 +1,2793 @@
+﻿
+===== src\App.tsx =====
+
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Activity, AlertTriangle, ArrowDownRight, ArrowRight, BarChart3,
+  Bell, Boxes, Check, ChevronDown, CircleHelp, Clock, Cpu,
+  LayoutDashboard, Menu, Package, Pencil, Plus, RefreshCw,
+  Search, Settings, ShieldCheck, ShoppingBag, SlidersHorizontal,
+  Tags, Trash2, X, Eye, Save,
+} from 'lucide-react'
+import './App.css'
+
+type Product = {
+  id: number
+  name: string
+  description: string
+  price: number
+  stock: number
+  category: string
+  imageUrl?: string
+}
+
+type ProductForm = {
+  name: string
+  description: string
+  price: string
+  stock: string
+  category: string
+  imageUrl: string
+}
+
+type NavItem = {
+  label: string
+  icon: typeof LayoutDashboard
+}
+
+const API_URL = 'http://localhost:5091/api/products'
+
+const EMPTY_FORM: ProductForm = {
+  name: '',
+  description: '',
+  price: '',
+  stock: '',
+  category: '',
+  imageUrl: '',
+}
+
+const navItems: NavItem[] = [
+  { label: 'Dashboard', icon: LayoutDashboard },
+  { label: 'Produits', icon: Package },
+  { label: 'CatÃ©gories', icon: Tags },
+  { label: 'Stock', icon: Boxes },
+  { label: 'Statistiques', icon: BarChart3 },
+]
+
+function App() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('Toutes')
+  const [activePage, setActivePage] = useState('Dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  const [modal, setModal] = useState<'form' | 'details' | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [form, setForm] = useState<ProductForm>(EMPTY_FORM)
+  const [formError, setFormError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const loadProducts = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch(API_URL)
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP ${response.status}`)
+      }
+
+      const data: Product[] = await response.json()
+      setProducts(Array.isArray(data) ? data : [])
+      setLastUpdated(new Date())
+    } catch {
+      setError(
+        "Impossible de charger les produits. VÃ©rifiez que l'API fonctionne sur le port 5091.",
+      )
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadProducts()
+  }, [loadProducts])
+
+  // Fermer la fenÃªtre avec la touche Ã‰chap.
+  useEffect(() => {
+    if (!modal) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) closeModal()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [modal, saving])
+
+  const categories = useMemo(
+    () => [
+      'Toutes',
+      ...new Set(products.map((p) => p.category).filter(Boolean)),
+    ],
+    [products],
+  )
+
+  const stats = useMemo(() => {
+    const totalUnits = products.reduce(
+      (sum, p) => sum + Math.max(0, Number(p.stock) || 0),
+      0,
+    )
+    const inventoryValue = products.reduce(
+      (sum, p) =>
+        sum +
+        Math.max(0, Number(p.price) || 0) *
+          Math.max(0, Number(p.stock) || 0),
+      0,
+    )
+    const lowStock = products.filter(
+      (p) => p.stock > 0 && p.stock <= 5,
+    ).length
+    const outOfStock = products.filter((p) => p.stock <= 0).length
+    const categoryCount = new Set(
+      products.map((p) => p.category).filter(Boolean),
+    ).size
+
+    return {
+      totalProducts: products.length,
+      totalUnits,
+      inventoryValue,
+      lowStock,
+      outOfStock,
+      categoryCount,
+    }
+  }, [products])
+
+  const categoryStats = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    products.forEach((p) => {
+      const name = p.category || 'Autres'
+      counts.set(name, (counts.get(name) || 0) + 1)
+    })
+
+    return Array.from(counts, ([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+  }, [products])
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const text = `${p.name} ${p.description || ''} ${p.category || ''}`
+      const matchesSearch = text
+        .toLowerCase()
+        .includes(search.trim().toLowerCase())
+      const matchesCategory =
+        category === 'Toutes' || p.category === category
+      const matchesPage =
+        activePage !== 'Stock' || p.stock <= 5
+
+      return matchesSearch && matchesCategory && matchesPage
+    })
+  }, [products, search, category, activePage])
+
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('fr-MA', {
+      style: 'currency',
+      currency: 'MAD',
+      maximumFractionDigits: 2,
+    }).format(Number(price) || 0)
+
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat('fr-MA', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date)
+
+  function closeModal() {
+    setModal(null)
+    setSelectedProduct(null)
+    setForm(EMPTY_FORM)
+    setFormError('')
+  }
+
+  function openCreateForm() {
+    setSelectedProduct(null)
+    setForm(EMPTY_FORM)
+    setFormError('')
+    setActionError('')
+    setModal('form')
+  }
+
+  function openEditForm(product: Product) {
+    setSelectedProduct(product)
+    setForm({
+      name: product.name || '',
+      description: product.description || '',
+      price: String(product.price ?? ''),
+      stock: String(product.stock ?? ''),
+      category: product.category || '',
+      imageUrl: product.imageUrl || '',
+    })
+    setFormError('')
+    setActionError('')
+    setModal('form')
+  }
+
+  function openDetails(product: Product) {
+    setSelectedProduct(product)
+    setActionError('')
+    setModal('details')
+  }
+
+  function navigate(page: string) {
+    setActivePage(page)
+    setSidebarOpen(false)
+
+    if (page === 'CatÃ©gories') setCategory('Toutes')
+
+    if (page === 'Dashboard' || page === 'Statistiques') {
+      setSearch('')
+      setCategory('Toutes')
+    }
+  }
+
+  async function saveProduct(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFormError('')
+    setActionError('')
+    setSuccessMessage('')
+
+    const price = Number(form.price)
+    const stock = Number(form.stock)
+
+    if (!form.name.trim()) {
+      setFormError('Le nom du produit est obligatoire.')
+      return
+    }
+
+    if (!form.category.trim()) {
+      setFormError('La catÃ©gorie est obligatoire.')
+      return
+    }
+
+    if (form.price.trim() === '' || !Number.isFinite(price) || price < 0) {
+      setFormError('Entrez un prix valide, supÃ©rieur ou Ã©gal Ã  zÃ©ro.')
+      return
+    }
+
+    if (
+      form.stock.trim() === '' ||
+      !Number.isInteger(stock) ||
+      stock < 0
+    ) {
+      setFormError('La quantitÃ© doit Ãªtre un entier positif ou nul.')
+      return
+    }
+
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      price,
+      stock,
+      category: form.category.trim(),
+      imageUrl: form.imageUrl.trim(),
+    }
+
+    setSaving(true)
+
+    try {
+      const isEditing = selectedProduct !== null
+      const url = isEditing
+        ? `${API_URL}/${selectedProduct.id}`
+        : API_URL
+
+      const response = await fetch(url, {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const details = await response.text()
+        throw new Error(
+          details || `Ã‰chec de l'enregistrement (HTTP ${response.status}).`,
+        )
+      }
+
+      closeModal()
+      setSuccessMessage(
+        isEditing
+          ? 'Le produit a Ã©tÃ© modifiÃ© avec succÃ¨s.'
+          : 'Le produit a Ã©tÃ© ajoutÃ© avec succÃ¨s.',
+      )
+      setActivePage('Produits')
+      await loadProducts(false)
+    } catch (err) {
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : "Une erreur est survenue lors de l'enregistrement.",
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function deleteProduct(product: Product) {
+    const confirmed = window.confirm(
+      `Voulez-vous vraiment supprimer "${product.name}" ? Cette action est irrÃ©versible.`,
+    )
+
+    if (!confirmed) return
+
+    setActionError('')
+    setSuccessMessage('')
+
+    try {
+      const response = await fetch(`${API_URL}/${product.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const details = await response.text()
+        throw new Error(
+          details || `Ã‰chec de la suppression (HTTP ${response.status}).`,
+        )
+      }
+
+      if (modal) closeModal()
+
+      setSuccessMessage(`Le produit "${product.name}" a Ã©tÃ© supprimÃ©.`)
+      await loadProducts(false)
+    } catch (err) {
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : 'Impossible de supprimer ce produit.',
+      )
+    }
+  }
+
+  const pageTitle =
+    activePage === 'Dashboard'
+      ? "Vue dâ€™ensemble"
+      : activePage === 'Stock'
+        ? 'Surveillance du stock'
+        : activePage === 'CatÃ©gories'
+          ? 'CatÃ©gories de produits'
+          : activePage === 'Statistiques'
+            ? 'Statistiques'
+            : activePage
+
+  return (
+    <div className="admin-app">
+      {sidebarOpen && (
+        <button
+          className="sidebar-overlay"
+          aria-label="Fermer le menu"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
+        <a
+          className="sidebar-brand"
+          href="#dashboard"
+          onClick={(e) => {
+            e.preventDefault()
+            navigate('Dashboard')
+          }}
+        >
+          <span className="brand-icon"><Cpu size={23} /></span>
+          <span>
+            Media<span className="brand-red">Tech</span>
+            <small>ADMINISTRATION</small>
+          </span>
+        </a>
+
+        <div className="sidebar-label">MENU PRINCIPAL</div>
+
+        <nav className="sidebar-nav">
+          {navItems.map(({ label, icon: Icon }) => (
+            <button
+              key={label}
+              className={`nav-link ${activePage === label ? 'nav-link-active' : ''}`}
+              onClick={() => navigate(label)}
+            >
+              <Icon size={19} strokeWidth={1.8} />
+              <span>{label}</span>
+              {label === 'Stock' && stats.lowStock + stats.outOfStock > 0 && (
+                <span className="nav-count">
+                  {stats.lowStock + stats.outOfStock}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-label sidebar-label-spaced">
+          PRÃ‰FÃ‰RENCES
+        </div>
+
+        <nav className="sidebar-nav">
+          <button
+            className={`nav-link ${activePage === 'ParamÃ¨tres' ? 'nav-link-active' : ''}`}
+            onClick={() => navigate('ParamÃ¨tres')}
+          >
+            <Settings size={19} strokeWidth={1.8} />
+            <span>ParamÃ¨tres</span>
+          </button>
+          <button
+            className="nav-link"
+            onClick={() =>
+              setSuccessMessage(
+                "MediaTech â€” GÃ©rez les produits, les catÃ©gories et le stock depuis votre espace d'administration.",
+              )
+            }
+          >
+            <CircleHelp size={19} strokeWidth={1.8} />
+            <span>Centre dâ€™aide</span>
+          </button>
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="sidebar-help-icon"><ShieldCheck size={20} /></div>
+          <strong>Votre espace admin</strong>
+          <p>GÃ©rez votre catalogue en toute simplicitÃ©.</p>
+          <span className="secure-label"><span /> Interface de gestion</span>
+        </div>
+
+        <div className="sidebar-profile">
+          <div className="profile-avatar">MT</div>
+          <div className="profile-text">
+            <strong>Administrateur</strong>
+            <span>MediaTech Store</span>
+          </div>
+          <ChevronDown size={16} className="profile-chevron" />
+        </div>
+      </aside>
+
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <button
+            className="mobile-menu"
+            aria-label="Ouvrir le menu"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu size={22} />
+          </button>
+
+          <div className="breadcrumb">
+            <span>MediaTech</span>
+            <span className="breadcrumb-separator">/</span>
+            <strong>{pageTitle}</strong>
+          </div>
+
+          <div className="topbar-actions">
+            <div className="connection-pill">
+              <span className={`connection-dot ${error ? 'connection-error' : ''}`} />
+              {error ? 'API dÃ©connectÃ©e' : 'Catalogue'}
+            </div>
+            <button
+              className="icon-button"
+              aria-label="Actualiser les produits"
+              onClick={() => void loadProducts()}
+              title="Actualiser"
+            >
+              <RefreshCw size={18} className={loading ? 'spin' : ''} />
+            </button>
+            <button
+              className="icon-button notification-button"
+              aria-label="Notifications stock"
+              onClick={() => navigate('Stock')}
+            >
+              <Bell size={19} />
+              {stats.lowStock + stats.outOfStock > 0 && (
+                <span className="notification-dot" />
+              )}
+            </button>
+            <div className="topbar-avatar">MT</div>
+          </div>
+        </header>
+
+        <main className="dashboard-content">
+          <section className="welcome-row">
+            <div>
+              <div className="page-eyebrow">
+                <span className="eyebrow-line" /> ESPACE DE GESTION
+              </div>
+              <h1>{pageTitle}<span className="title-period">.</span></h1>
+              <p className="page-subtitle">
+                Voici un aperÃ§u de votre catalogue et de votre inventaire.
+              </p>
+            </div>
+
+            <div className="welcome-actions">
+              <span className="updated-label">
+                <Clock size={14} />
+                {lastUpdated
+                  ? `Mis Ã  jour Ã  ${formatDate(lastUpdated)}`
+                  : 'En attente des donnÃ©es'}
+              </span>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  navigate('Produits')
+                  openCreateForm()
+                }}
+              >
+                <Plus size={17} /> Ajouter un produit
+              </button>
+            </div>
+          </section>
+
+          {error && (
+            <div className="error-banner">
+              <AlertTriangle size={20} />
+              <div>
+                <strong>Connexion Ã  lâ€™API impossible</strong>
+                <p>{error}</p>
+              </div>
+              <button onClick={() => void loadProducts()}>
+                <RefreshCw size={15} /> RÃ©essayer
+              </button>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="crud-message crud-success" role="status">
+              <Check size={18} />
+              <span>{successMessage}</span>
+              <button
+                aria-label="Fermer le message"
+                onClick={() => setSuccessMessage('')}
+              >
+                <X size={17} />
+              </button>
+            </div>
+          )}
+
+          {actionError && (
+            <div className="crud-message crud-error" role="alert">
+              <AlertTriangle size={18} />
+              <span>{actionError}</span>
+              <button
+                aria-label="Fermer le message"
+                onClick={() => setActionError('')}
+              >
+                <X size={17} />
+              </button>
+            </div>
+          )}
+
+          {activePage === 'ParamÃ¨tres' ? (
+            <section className="panel settings-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>ParamÃ¨tres de lâ€™application</h2>
+                  <p>Informations sur la configuration actuelle.</p>
+                </div>
+              </div>
+              <div className="settings-row">
+                <div><strong>Nom de la boutique</strong><p>MediaTech</p></div>
+                <span className="settings-value">Catalogue informatique</span>
+              </div>
+              <div className="settings-row">
+                <div><strong>API des produits</strong><p>Source des donnÃ©es du catalogue.</p></div>
+                <code>localhost:5091/api/products</code>
+              </div>
+              <div className="settings-row">
+                <div><strong>Devise</strong><p>Devise utilisÃ©e pour afficher les prix.</p></div>
+                <span className="settings-value">MAD â€” Dirham marocain</span>
+              </div>
+              <div className="settings-row">
+                <div><strong>Connexion</strong><p>Ã‰tat du chargement des produits.</p></div>
+                <span className={`status-tag ${error ? 'status-danger' : 'status-success'}`}>
+                  {error ? 'DÃ©connectÃ©e' : loading ? 'Chargement...' : 'Catalogue accessible'}
+                </span>
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="stats-grid" hidden={activePage !== 'Dashboard' && activePage !== 'Statistiques'}>
+                <article className="stat-card">
+                  <div className="stat-top">
+                    <span className="stat-icon stat-icon-red"><Package size={21} /></span>
+                    <span className="stat-kicker">CATALOGUE</span>
+                  </div>
+                  <p className="stat-label">Total des produits</p>
+                  <div className="stat-value">
+                    {loading ? 'â€”' : stats.totalProducts.toLocaleString('fr-MA')}
+                  </div>
+                  <div className="stat-footer">
+                    <span className="stat-neutral"><Boxes size={14} /> {stats.totalUnits} unitÃ©s</span>
+                    <span className="stat-caption">en stock</span>
+                  </div>
+                </article>
+
+                <article className="stat-card">
+                  <div className="stat-top">
+                    <span className="stat-icon stat-icon-dark"><ShoppingBag size={21} /></span>
+                    <span className="stat-kicker">VALORISATION</span>
+                  </div>
+                  <p className="stat-label">Valeur du stock</p>
+                  <div className="stat-value stat-value-price">
+                    {loading ? 'â€”' : formatPrice(stats.inventoryValue)}
+                  </div>
+                  <div className="stat-footer">
+                    <span className="stat-neutral"><Activity size={14} /> Prix Ã— quantitÃ©</span>
+                    <span className="stat-caption">estimation</span>
+                  </div>
+                </article>
+
+                <article className="stat-card">
+                  <div className="stat-top">
+                    <span className="stat-icon stat-icon-orange"><AlertTriangle size={21} /></span>
+                    <span className="stat-kicker">VIGILANCE</span>
+                  </div>
+                  <p className="stat-label">Stock faible</p>
+                  <div className="stat-value">{loading ? 'â€”' : stats.lowStock}</div>
+                  <div className="stat-footer">
+                    <span className="stat-warning"><ArrowDownRight size={15} /> â‰¤ 5 unitÃ©s</span>
+                    <button className="text-action" onClick={() => navigate('Stock')}>
+                      Surveiller <ArrowRight size={13} />
+                    </button>
+                  </div>
+                </article>
+
+                <article className="stat-card">
+                  <div className="stat-top">
+                    <span className="stat-icon stat-icon-purple"><Tags size={21} /></span>
+                    <span className="stat-kicker">ORGANISATION</span>
+                  </div>
+                  <p className="stat-label">CatÃ©gories</p>
+                  <div className="stat-value">{loading ? 'â€”' : stats.categoryCount}</div>
+                  <div className="stat-footer">
+                    <span className="stat-neutral"><Check size={14} /> Catalogue classÃ©</span>
+                    <button className="text-action" onClick={() => navigate('CatÃ©gories')}>
+                      Explorer <ArrowRight size={13} />
+                    </button>
+                  </div>
+                </article>
+              </section>
+
+              <section className="overview-grid" hidden={activePage !== 'Dashboard' && activePage !== 'Statistiques'}>
+                <article className="panel category-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>RÃ©partition par catÃ©gorie</h2>
+                      <p>Nombre de produits dans chaque catÃ©gorie.</p>
+                    </div>
+                    <button
+                      className="subtle-icon-button"
+                      aria-label="Voir les catÃ©gories"
+                      onClick={() => navigate('CatÃ©gories')}
+                    >
+                      <ArrowRight size={17} />
+                    </button>
+                  </div>
+
+                  {loading ? (
+                    <div className="chart-empty">Chargement des catÃ©gories...</div>
+                  ) : categoryStats.length === 0 ? (
+                    <div className="chart-empty"><Tags size={26} /><span>Aucune catÃ©gorie Ã  afficher.</span></div>
+                  ) : (
+                    <div className="category-chart">
+                      <div className="chart-bars">
+                        {categoryStats.map((item, index) => {
+                          const max = Math.max(
+                            ...categoryStats.map((entry) => entry.count),
+                            1,
+                          )
+                          const height = Math.max((item.count / max) * 100, 8)
+
+                          return (
+                            <button
+                              className="bar-column"
+                              key={item.name}
+                              onClick={() => {
+                                setCategory(item.name)
+                                setActivePage('Produits')
+                              }}
+                              title={`${item.name} : ${item.count} produit(s)`}
+                            >
+                              <span className="bar-count">{item.count}</span>
+                              <span className={`bar-track bar-color-${index}`}>
+                                <span style={{ height: `${height}%` }} />
+                              </span>
+                              <span className="bar-label">{item.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="chart-baseline" />
+                      <div className="chart-summary">
+                        <span className="chart-summary-dot" />
+                        <span>{stats.totalProducts} produits rÃ©partis dans {stats.categoryCount} catÃ©gories</span>
+                      </div>
+                    </div>
+                  )}
+                </article>
+
+                <article className="panel stock-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Ã‰tat du stock</h2>
+                      <p>Suivi des quantitÃ©s disponibles.</p>
+                    </div>
+                    <span className="live-indicator"><span /> EN DIRECT</span>
+                  </div>
+
+                  <div className="stock-summary">
+                    <div className="stock-summary-number">
+                      {loading ? 'â€”' : stats.totalUnits.toLocaleString('fr-MA')}
+                      <span> unitÃ©s</span>
+                    </div>
+                    <div className="stock-summary-caption">QuantitÃ© totale enregistrÃ©e</div>
+                  </div>
+
+                  <div className="stock-progress">
+                    <div className="progress-track">
+                      <span
+                        className="progress-available"
+                        style={{
+                          width: `${products.length ? (products.filter((p) => p.stock > 5).length / products.length) * 100 : 0}%`,
+                        }}
+                      />
+                      <span
+                        className="progress-low"
+                        style={{
+                          width: `${products.length ? (stats.lowStock / products.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="progress-legend">
+                      <span><i className="legend-green" /> Disponible <strong>{products.filter((p) => p.stock > 5).length}</strong></span>
+                      <span><i className="legend-orange" /> Faible <strong>{stats.lowStock}</strong></span>
+                      <span><i className="legend-red" /> Ã‰puisÃ© <strong>{stats.outOfStock}</strong></span>
+                    </div>
+                  </div>
+
+                  <button className="stock-detail-button" onClick={() => navigate('Stock')}>
+                    Consulter les alertes stock <ArrowRight size={16} />
+                  </button>
+                </article>
+              </section>
+
+              <section className="panel products-panel" id="products" hidden={activePage === 'Statistiques'}>
+                <div className="panel-heading products-heading">
+                  <div>
+                    <div className="heading-with-icon">
+                      <h2>
+                        {activePage === 'Stock'
+                          ? 'Produits Ã  surveiller'
+                          : activePage === 'CatÃ©gories'
+                            ? 'Catalogue par catÃ©gorie'
+                            : activePage === 'Statistiques'
+                              ? 'DonnÃ©es du catalogue'
+                              : activePage === 'Produits'
+                                ? 'Gestion des produits'
+                                : 'Produits rÃ©cents'}
+                      </h2>
+                      <span className="table-count">{filteredProducts.length}</span>
+                    </div>
+                    <p>
+                      {activePage === 'Stock'
+                        ? 'Produits dont le stock est faible ou Ã©puisÃ©.'
+                        : 'Consultez, ajoutez, modifiez ou supprimez les produits.'}
+                    </p>
+                  </div>
+
+                  <div className="table-actions">
+                    <label className="table-search">
+                      <Search size={16} />
+                      <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Rechercher..."
+                      />
+                    </label>
+                    <label className="filter-select">
+                      <SlidersHorizontal size={15} />
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        aria-label="Filtrer par catÃ©gorie"
+                      >
+                        {categories.map((item) => (
+                          <option key={item} value={item}>
+                            {item === 'Toutes' ? 'Toutes catÃ©gories' : item}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="refresh-table-button"
+                      onClick={() => void loadProducts()}
+                      title="Actualiser"
+                    >
+                      <RefreshCw size={16} />
+                    </button>
+                    <button className="primary-button add-product-button" onClick={openCreateForm}>
+                      <Plus size={16} /> Ajouter
+                    </button>
+                  </div>
+                </div>
+
+                <div className="table-wrap">
+                  <table className="products-table">
+                    <thead>
+                      <tr>
+                        <th>PRODUIT</th>
+                        <th>CATÃ‰GORIE</th>
+                        <th>PRIX UNITAIRE</th>
+                        <th>QUANTITÃ‰</th>
+                        <th>STATUT</th>
+                        <th className="action-column">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr><td colSpan={6} className="table-message">Chargement du catalogue...</td></tr>
+                      ) : error ? (
+                        <tr><td colSpan={6} className="table-message">Les produits ne sont pas disponibles. RÃ©essayez aprÃ¨s avoir dÃ©marrÃ© lâ€™API.</td></tr>
+                      ) : filteredProducts.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="table-message">
+                            <Search size={21} />
+                            <span>Aucun produit ne correspond Ã  votre recherche.</span>
+                            <button onClick={() => { setSearch(''); setCategory('Toutes') }}>
+                              RÃ©initialiser les filtres
+                            </button>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredProducts.map((product) => (
+                          <tr key={product.id}>
+                            <td>
+                              <div className="product-cell">
+                                <div className="table-product-image">
+                                  {product.imageUrl
+                                    ? <img src={product.imageUrl} alt={product.name} />
+                                    : <Cpu size={22} />}
+                                </div>
+                                <div className="table-product-info">
+                                  <strong>{product.name}</strong>
+                                  <span>RÃ©f. MT-{String(product.id).padStart(4, '0')}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td><span className="category-tag">{product.category || 'Autres'}</span></td>
+                            <td><strong className="table-price">{formatPrice(product.price)}</strong></td>
+                            <td>
+                              <div className="quantity-cell">
+                                <span className={`quantity-dot ${product.stock <= 0 ? 'quantity-dot-red' : product.stock <= 5 ? 'quantity-dot-orange' : ''}`} />
+                                {product.stock} <span className="quantity-unit">unitÃ©s</span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`status-tag ${product.stock <= 0 ? 'status-danger' : product.stock <= 5 ? 'status-warning' : 'status-success'}`}>
+                                <span />
+                                {product.stock <= 0 ? 'Ã‰puisÃ©' : product.stock <= 5 ? 'Stock faible' : 'Disponible'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="product-actions">
+                                <button
+                                  className="row-action"
+                                  title="Voir les dÃ©tails"
+                                  aria-label={`DÃ©tails de ${product.name}`}
+                                  onClick={() => openDetails(product)}
+                                >
+                                  <Eye size={16} />
+                                </button>
+                                <button
+                                  className="row-action edit-action"
+                                  title="Modifier"
+                                  aria-label={`Modifier ${product.name}`}
+                                  onClick={() => openEditForm(product)}
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                                <button
+                                  className="row-action delete-action"
+                                  title="Supprimer"
+                                  aria-label={`Supprimer ${product.name}`}
+                                  onClick={() => void deleteProduct(product)}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="table-footer">
+                  <span>
+                    Affichage de <strong>{filteredProducts.length}</strong> produit(s) sur <strong>{products.length}</strong>
+                  </span>
+                  <span className="table-footer-note">
+                    <ShieldCheck size={14} /> DonnÃ©es issues de votre API
+                  </span>
+                </div>
+              </section>
+            </>
+          )}
+
+          <footer className="dashboard-footer">
+            <span>Â© {new Date().getFullYear()} MediaTech. Tous droits rÃ©servÃ©s.</span>
+            <span><span className="footer-status-dot" /> Administration du catalogue</span>
+          </footer>
+        </main>
+      </div>
+
+      {modal && selectedProduct && modal === 'details' && (
+        <div className="modal-overlay" onMouseDown={(e) => {
+          if (e.target === e.currentTarget) closeModal()
+        }}>
+          <section className="product-modal" role="dialog" aria-modal="true" aria-labelledby="details-title">
+            <div className="modal-heading">
+              <div>
+                <span className="page-eyebrow"><span className="eyebrow-line" /> FICHE PRODUIT</span>
+                <h2 id="details-title">DÃ©tails du produit</h2>
+              </div>
+              <button className="icon-button" onClick={closeModal} aria-label="Fermer">
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="product-details">
+              {selectedProduct.imageUrl && (
+                <img className="details-image" src={selectedProduct.imageUrl} alt={selectedProduct.name} />
+              )}
+              <h3>{selectedProduct.name}</h3>
+              <p>{selectedProduct.description || 'Aucune description renseignÃ©e.'}</p>
+              <div className="details-row"><span>RÃ©fÃ©rence</span><strong>MT-{String(selectedProduct.id).padStart(4, '0')}</strong></div>
+              <div className="details-row"><span>CatÃ©gorie</span><strong>{selectedProduct.category || 'Autres'}</strong></div>
+              <div className="details-row"><span>Prix unitaire</span><strong>{formatPrice(selectedProduct.price)}</strong></div>
+              <div className="details-row"><span>QuantitÃ©</span><strong>{selectedProduct.stock} unitÃ©(s)</strong></div>
+              <div className="details-row">
+                <span>Statut</span>
+                <strong>{selectedProduct.stock <= 0 ? 'Ã‰puisÃ©' : selectedProduct.stock <= 5 ? 'Stock faible' : 'Disponible'}</strong>
+              </div>
+              <div className="modal-actions">
+                <button className="primary-button" onClick={() => openEditForm(selectedProduct)}>
+                  <Pencil size={16} /> Modifier
+                </button>
+                <button className="secondary-button" onClick={closeModal}>Fermer</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {modal === 'form' && (
+        <div className="modal-overlay" onMouseDown={(e) => {
+          if (e.target === e.currentTarget && !saving) closeModal()
+        }}>
+          <section className="product-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
+            <div className="modal-heading">
+              <div>
+                <span className="page-eyebrow"><span className="eyebrow-line" /> CATALOGUE MEDIATEK</span>
+                <h2 id="form-title">{selectedProduct ? 'Modifier le produit' : 'Ajouter un produit'}</h2>
+                <p className="modal-description">
+                  {selectedProduct ? 'Modifiez les informations puis enregistrez.' : 'Renseignez les informations du nouveau produit.'}
+                </p>
+              </div>
+              <button className="icon-button" onClick={closeModal} disabled={saving} aria-label="Fermer">
+                <X size={19} />
+              </button>
+            </div>
+
+            <form className="product-form" onSubmit={saveProduct}>
+              <label>
+                Nom du produit *
+                <input
+                  autoFocus
+                  required
+                  maxLength={150}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Ex. Laptop HP"
+                />
+              </label>
+
+              <label>
+                Description
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Description du produit..."
+                />
+              </label>
+
+              <div className="form-grid">
+                <label>
+                  Prix (MAD) *
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    placeholder="6500"
+                  />
+                </label>
+                <label>
+                  QuantitÃ© en stock *
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="1"
+                    value={form.stock}
+                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                    placeholder="10"
+                  />
+                </label>
+              </div>
+
+              <label>
+                CatÃ©gorie *
+                <input
+                  required
+                  maxLength={100}
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  placeholder="Ex. Ordinateurs"
+                  list="product-categories"
+                />
+                <datalist id="product-categories">
+                  {categories.filter((c) => c !== 'Toutes').map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label>
+                URL de lâ€™image (facultatif)
+                <input
+                  type="url"
+                  value={form.imageUrl}
+                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                  placeholder="https://exemple.com/image.jpg"
+                />
+              </label>
+
+              {formError && (
+                <div className="form-error" role="alert">
+                  <AlertTriangle size={16} /> {formError}
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button className="primary-button" type="submit" disabled={saving}>
+                  {saving ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}
+                  {saving ? 'Enregistrement...' : selectedProduct ? 'Enregistrer les modifications' : 'Ajouter le produit'}
+                </button>
+                <button className="secondary-button" type="button" disabled={saving} onClick={closeModal}>
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default App
+
+===== src\pages\types.ts =====
+
+export type Product = {
+  id: number
+  name: string
+  description: string
+  price: number
+  stock: number
+  category: string
+  imageUrl?: string
+}
+
+
+===== src\pages\Produits.tsx =====
+
+
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Package, Plus, Search, Pencil, Trash2, X, RefreshCw } from 'lucide-react'
+import './Produits.css'
+import type { Product } from './types'
+
+const API_URL = 'http://localhost:5091/api/products'
+
+
+const initialForm = {
+  name: '',
+  description: '',
+  price: 0,
+  stock: 0,
+  category: 'Ordinateurs',
+}
+
+export default function Produits() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Product | null>(null)
+  const [form, setForm] = useState(initialForm)
+  const [saving, setSaving] = useState(false)
+
+  async function loadProducts() {
+    setLoading(true)
+    try {
+      const response = await fetch(API_URL)
+      if (!response.ok) throw new Error('Erreur de chargement')
+      setProducts(await response.json())
+      setError('')
+    } catch {
+      setError('Impossible de contacter lâ€™API. VÃ©rifiez que le backend fonctionne.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadProducts()
+  }, [])
+
+  const filteredProducts = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q)
+    )
+  }, [products, search])
+
+  function addProduct() {
+    setEditing(null)
+    setForm({ ...initialForm })
+    setShowForm(true)
+  }
+
+  function editProduct(product: Product) {
+    setEditing(product)
+    setForm({
+      name: product.name,
+      description: product.description || '',
+      price: product.price,
+      stock: product.stock,
+      category: product.category || 'Ordinateurs',
+    })
+    setShowForm(true)
+  }
+
+  async function submitForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setError('')
+
+    try {
+      const response = await fetch(
+        editing ? `${API_URL}/${editing.id}` : API_URL,
+        {
+          method: editing ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...form,
+            price: Number(form.price),
+            stock: Number(form.stock),
+          }),
+        }
+      )
+
+      if (!response.ok) throw new Error('Ã‰chec de lâ€™enregistrement.')
+
+      setShowForm(false)
+      await loadProducts()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function removeProduct(product: Product) {
+    if (!window.confirm(`Supprimer le produit "${product.name}" ?`)) return
+
+    try {
+      const response = await fetch(`${API_URL}/${product.id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw new Error()
+      await loadProducts()
+    } catch {
+      setError('Impossible de supprimer ce produit.')
+    }
+  }
+
+  const stockTotal = products.reduce((sum, p) => sum + p.stock, 0)
+  const stockValue = products.reduce((sum, p) => sum + p.price * p.stock, 0)
+
+  return (
+    <main className="products-page">
+      <header className="products-header">
+        <div>
+          <span className="products-eyebrow">INVENTAIRE</span>
+          <h1>Produits</h1>
+          <p>GÃ©rez les produits de votre boutique MediaTech.</p>
+        </div>
+
+        <button className="product-primary-btn" onClick={addProduct}>
+          <Plus size={18} /> Ajouter un produit
+        </button>
+      </header>
+
+      {error && (
+        <div className="products-error">
+          <span>{error}</span>
+          <button onClick={() => setError('')} aria-label="Fermer">
+            <X size={17} />
+          </button>
+        </div>
+      )}
+
+      <section className="products-stats">
+        <article className="product-stat-card">
+          <Package size={25} />
+          <div>
+            <p>Total des produits</p>
+            <h2>{products.length}</h2>
+          </div>
+        </article>
+
+        <article className="product-stat-card">
+          <Package size={25} />
+          <div>
+            <p>UnitÃ©s en stock</p>
+            <h2>{stockTotal}</h2>
+          </div>
+        </article>
+
+        <article className="product-stat-card">
+          <Package size={25} />
+          <div>
+            <p>Valeur du stock</p>
+            <h2>{stockValue.toLocaleString('fr-FR')} MAD</h2>
+          </div>
+        </article>
+      </section>
+
+      <section className="products-panel">
+        <div className="products-toolbar">
+          <div>
+            <h2>Liste des produits</h2>
+            <p>{filteredProducts.length} produit(s)</p>
+          </div>
+
+          <div className="products-search">
+            <Search size={18} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher un produit..."
+            />
+          </div>
+
+          <button
+            className="product-refresh-btn"
+            onClick={() => void loadProducts()}
+            title="Actualiser"
+          >
+            <RefreshCw size={17} />
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="products-empty">Chargement...</p>
+        ) : filteredProducts.length === 0 ? (
+          <div className="products-empty">
+            <Package size={35} />
+            <h3>Aucun produit trouvÃ©</h3>
+            <p>Ajoutez un produit ou changez votre recherche.</p>
+          </div>
+        ) : (
+          <div className="products-table-wrap">
+            <table className="products-table">
+              <thead>
+                <tr>
+                  <th>Produit</th>
+                  <th>CatÃ©gorie</th>
+                  <th>Prix</th>
+                  <th>Stock</th>
+                  <th>Valeur du stock</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map(product => (
+                  <tr key={product.id}>
+                    <td>
+                      <div className="product-name-cell">
+                        <span className="product-avatar">
+                          <Package size={20} />
+                        </span>
+                        <div>
+                          <strong>{product.name}</strong>
+                          <small>{product.description || 'Sans description'}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="product-category">
+                        {product.category || 'Non classÃ©'}
+                      </span>
+                    </td>
+                    <td>{product.price.toLocaleString('fr-FR')} MAD</td>
+                    <td>
+                      <span className={
+                        product.stock === 0 ? 'stock-badge stock-out'
+                          : product.stock <= 5 ? 'stock-badge stock-low'
+                            : 'stock-badge stock-ok'
+                      }>
+                        {product.stock === 0 ? 'Ã‰puisÃ©' : product.stock}
+                      </span>
+                    </td>
+                    <td>
+                      {(product.price * product.stock).toLocaleString('fr-FR')} MAD
+                    </td>
+                    <td>
+                      <div className="product-actions">
+                        <button onClick={() => editProduct(product)} title="Modifier">
+                          <Pencil size={17} />
+                        </button>
+                        <button
+                          className="product-delete-btn"
+                          onClick={() => void removeProduct(product)}
+                          title="Supprimer"
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {showForm && (
+        <div className="product-modal-overlay">
+          <section className="product-modal">
+            <header className="product-modal-header">
+              <div>
+                <h2>{editing ? 'Modifier le produit' : 'Ajouter un produit'}</h2>
+                <p>Remplissez les informations ci-dessous.</p>
+              </div>
+              <button onClick={() => setShowForm(false)} aria-label="Fermer">
+                <X size={20} />
+              </button>
+            </header>
+
+            <form onSubmit={submitForm}>
+              <label>
+                Nom du produit *
+                <input
+                  required
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  placeholder="Ex. Laptop HP"
+                />
+              </label>
+
+              <label>
+                Description
+                <textarea
+                  rows={3}
+                  value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  placeholder="Description du produit"
+                />
+              </label>
+
+              <div className="product-form-row">
+                <label>
+                  Prix (MAD) *
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={e => setForm({ ...form, price: Number(e.target.value) })}
+                  />
+                </label>
+
+                <label>
+                  Stock *
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.stock}
+                    onChange={e => setForm({ ...form, stock: Number(e.target.value) })}
+                  />
+                </label>
+              </div>
+
+              <label>
+                CatÃ©gorie *
+                <input
+                  required
+                  value={form.category}
+                  onChange={e => setForm({ ...form, category: e.target.value })}
+                  placeholder="Ex. Ordinateurs"
+                />
+              </label>
+
+              <footer className="product-modal-footer">
+                <button
+                  type="button"
+                  className="product-cancel-btn"
+                  onClick={() => setShowForm(false)}
+                  disabled={saving}
+                >
+                  Annuler
+                </button>
+                <button className="product-primary-btn" type="submit" disabled={saving}>
+                  {saving ? 'Enregistrement...' : editing ? 'Enregistrer' : 'Ajouter'}
+                </button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
+    </main>
+  )
+}
+
+
+===== src\pages\Categories.tsx =====
+
+
+import { useMemo, useState } from 'react'
+import {
+  ArrowRight,
+  Boxes,
+  Package,
+  Search,
+  Tags,
+  TrendingUp,
+} from 'lucide-react'
+import type { Product } from './types'
+import './Categories.css'
+
+type CategoriesProps = {
+  products: Product[]
+  onSelectCategory: (category: string) => void
+}
+
+export default function Categories({
+  products,
+  onSelectCategory,
+}: CategoriesProps) {
+  const [search, setSearch] = useState('')
+
+  const categories = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { count: number; units: number; value: number; lowStock: number }
+    >()
+
+    products.forEach((product) => {
+      const name = product.category?.trim() || 'Autres'
+      const current = grouped.get(name) ?? {
+        count: 0,
+        units: 0,
+        value: 0,
+        lowStock: 0,
+      }
+
+      current.count += 1
+      current.units += Math.max(0, Number(product.stock) || 0)
+      current.value +=
+        Math.max(0, Number(product.price) || 0) *
+        Math.max(0, Number(product.stock) || 0)
+
+      if (product.stock <= 5) current.lowStock += 1
+
+      grouped.set(name, current)
+    })
+
+    return Array.from(grouped, ([name, data]) => ({ name, ...data }))
+      .filter((item) =>
+        item.name.toLowerCase().includes(search.trim().toLowerCase()),
+      )
+      .sort((a, b) => b.count - a.count)
+  }, [products, search])
+
+  const totalCategories = new Set(
+    products.map((product) => product.category?.trim() || 'Autres'),
+  ).size
+
+  const totalUnits = products.reduce(
+    (sum, product) => sum + Math.max(0, Number(product.stock) || 0),
+    0,
+  )
+
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('fr-MA', {
+      style: 'currency',
+      currency: 'MAD',
+      maximumFractionDigits: 2,
+    }).format(price)
+
+  return (
+    <div className="categories-page">
+      <section className="categories-intro">
+        <div>
+          <span className="categories-eyebrow">
+            <Tags size={15} /> ORGANISATION DU CATALOGUE
+          </span>
+          <h2>Gestion des catÃ©gories</h2>
+          <p>
+            Explore les catÃ©gories et consulte les produits
+            associÃ©s Ã  chacune.
+          </p>
+        </div>
+
+        <div className="categories-total-icon">
+          <Tags size={27} />
+        </div>
+      </section>
+
+      <section className="categories-stats">
+        <article className="category-stat-card">
+          <span className="category-stat-icon red">
+            <Tags size={20} />
+          </span>
+          <div>
+            <span>CatÃ©gories</span>
+            <strong>{totalCategories}</strong>
+          </div>
+        </article>
+
+        <article className="category-stat-card">
+          <span className="category-stat-icon dark">
+            <Package size={20} />
+          </span>
+          <div>
+            <span>Produits classÃ©s</span>
+            <strong>{products.length}</strong>
+          </div>
+        </article>
+
+        <article className="category-stat-card">
+          <span className="category-stat-icon orange">
+            <Boxes size={20} />
+          </span>
+          <div>
+            <span>UnitÃ©s en stock</span>
+            <strong>{totalUnits.toLocaleString('fr-MA')}</strong>
+          </div>
+        </article>
+      </section>
+
+      <section className="panel categories-list-panel">
+        <div className="categories-list-heading">
+          <div>
+            <h3>Catalogue par catÃ©gorie</h3>
+            <p>{categories.length} catÃ©gorie(s) affichÃ©e(s)</p>
+          </div>
+
+          <label className="categories-search">
+            <Search size={17} />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher une catÃ©gorie..."
+            />
+          </label>
+        </div>
+
+        {categories.length === 0 ? (
+          <div className="categories-empty">
+            <Tags size={30} />
+            <strong>
+              {products.length === 0
+                ? 'Aucune catÃ©gorie disponible'
+                : 'Aucun rÃ©sultat'}
+            </strong>
+            <p>
+              {products.length === 0
+                ? 'Ajoute des produits pour organiser ton catalogue.'
+                : 'Essaie un autre nom de catÃ©gorie.'}
+            </p>
+          </div>
+        ) : (
+          <div className="categories-grid">
+            {categories.map((item, index) => (
+              <article className="category-card" key={item.name}>
+                <div className="category-card-top">
+                  <div className={`category-card-icon color-${index % 4}`}>
+                    <Tags size={22} />
+                  </div>
+
+                  <span className="category-product-count">
+                    {item.count} produit{item.count > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <h4>{item.name}</h4>
+
+                <div className="category-card-metrics">
+                  <div>
+                    <span>Stock disponible</span>
+                    <strong>{item.units} unitÃ©s</strong>
+                  </div>
+
+                  <div>
+                    <span>Valeur du stock</span>
+                    <strong>{formatPrice(item.value)}</strong>
+                  </div>
+                </div>
+
+                <div className="category-card-footer">
+                  <span
+                    className={
+                      item.lowStock > 0
+                        ? 'category-stock-warning'
+                        : 'category-stock-ok'
+                    }
+                  >
+                    <TrendingUp size={14} />
+                    {item.lowStock > 0
+                      ? `${item.lowStock} produit(s) Ã  surveiller`
+                      : 'Stock en bon Ã©tat'}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSelectCategory(
+                        item.name === 'Autres' ? 'Toutes' : item.name,
+                      )
+                    }
+                    title={`Consulter ${item.name}`}
+                    aria-label={`Consulter les produits de ${item.name}`}
+                  >
+                    <ArrowRight size={17} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+
+===== src\pages\Stock.tsx =====
+
+
+import { useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  Boxes,
+  CheckCircle2,
+  Package,
+  Search,
+  Pencil,
+  RefreshCw,
+  XCircle,
+} from 'lucide-react'
+import type { Product } from './types'
+import './Stock.css'
+
+type StockProps = {
+  products: Product[]
+  loading: boolean
+  onEdit: (product: Product) => void
+  onRefresh: () => void
+}
+
+export default function Stock({
+  products,
+  loading,
+  onEdit,
+  onRefresh,
+}: StockProps) {
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('Tous')
+
+  const lowStock = products.filter(
+    (product) => product.stock > 0 && product.stock <= 5,
+  )
+
+  const outOfStock = products.filter(
+    (product) => product.stock <= 0,
+  )
+
+  const available = products.filter(
+    (product) => product.stock > 5,
+  )
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch = [
+        product.name,
+        product.category,
+        product.description,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(search.trim().toLowerCase())
+
+      const matchesFilter =
+        filter === 'Tous' ||
+        (filter === 'Faible' &&
+          product.stock > 0 &&
+          product.stock <= 5) ||
+        (filter === 'Ã‰puisÃ©' && product.stock <= 0) ||
+        (filter === 'Disponible' && product.stock > 5)
+
+      return matchesSearch && matchesFilter
+    })
+  }, [products, search, filter])
+
+  return (
+    <div className="stock-page">
+      <section className="stock-page-intro">
+        <div>
+          <span className="stock-eyebrow">
+            <Boxes size={15} /> GESTION DE L'INVENTAIRE
+          </span>
+          <h2>Surveillance du stock</h2>
+          <p>
+            Identifie rapidement les produits Ã  rÃ©approvisionner
+            et les articles Ã©puisÃ©s.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="stock-refresh-button"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          <RefreshCw size={16} className={loading ? 'spin' : ''} />
+          Actualiser
+        </button>
+      </section>
+
+      <section className="stock-stats-grid">
+        <article className="stock-stat-card">
+          <span className="stock-stat-icon stock-stat-red">
+            <AlertTriangle size={21} />
+          </span>
+          <div>
+            <span>Stock faible</span>
+            <strong>{lowStock.length}</strong>
+            <small>Entre 1 et 5 unitÃ©s</small>
+          </div>
+        </article>
+
+        <article className="stock-stat-card">
+          <span className="stock-stat-icon stock-stat-dark">
+            <XCircle size={21} />
+          </span>
+          <div>
+            <span>Produits Ã©puisÃ©s</span>
+            <strong>{outOfStock.length}</strong>
+            <small>Aucune unitÃ© disponible</small>
+          </div>
+        </article>
+
+        <article className="stock-stat-card">
+          <span className="stock-stat-icon stock-stat-green">
+            <CheckCircle2 size={21} />
+          </span>
+          <div>
+            <span>Disponibles</span>
+            <strong>{available.length}</strong>
+            <small>Plus de 5 unitÃ©s</small>
+          </div>
+        </article>
+      </section>
+
+      <section className="panel stock-table-panel">
+        <div className="stock-table-heading">
+          <div>
+            <h3>Ã‰tat des produits</h3>
+            <p>
+              {filteredProducts.length} produit(s) correspondant aux filtres
+            </p>
+          </div>
+
+          <div className="stock-filters">
+            <label className="stock-search">
+              <Search size={16} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Rechercher un produit..."
+              />
+            </label>
+
+            <select
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              aria-label="Filtrer par Ã©tat du stock"
+              className="stock-filter-select"
+            >
+              <option value="Tous">Tous les statuts</option>
+              <option value="Faible">Stock faible</option>
+              <option value="Ã‰puisÃ©">Ã‰puisÃ©</option>
+              <option value="Disponible">Disponible</option>
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="stock-empty">
+            <RefreshCw size={24} className="spin" />
+            <span>Chargement du stock...</span>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="stock-empty">
+            <Package size={30} />
+            <strong>Aucun produit trouvÃ©</strong>
+            <span>Essaie de modifier les filtres de recherche.</span>
+          </div>
+        ) : (
+          <div className="stock-table-wrap">
+            <table className="stock-table">
+              <thead>
+                <tr>
+                  <th>PRODUIT</th>
+                  <th>CATÃ‰GORIE</th>
+                  <th>QUANTITÃ‰</th>
+                  <th>Ã‰TAT</th>
+                  <th>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((product) => {
+                  const isOut = product.stock <= 0
+                  const isLow = product.stock > 0 && product.stock <= 5
+
+                  return (
+                    <tr key={product.id}>
+                      <td>
+                        <div className="stock-product-cell">
+                          <div className="stock-product-icon">
+                            {product.imageUrl ? (
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                              />
+                            ) : (
+                              <Package size={20} />
+                            )}
+                          </div>
+                          <div>
+                            <strong>{product.name}</strong>
+                            <span>
+                              RÃ©f. MT-
+                              {String(product.id).padStart(4, '0')}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td>
+                        <span className="stock-category-tag">
+                          {product.category || 'Autres'}
+                        </span>
+                      </td>
+
+                      <td>
+                        <strong
+                          className={`stock-quantity ${
+                            isOut
+                              ? 'stock-quantity-out'
+                              : isLow
+                                ? 'stock-quantity-low'
+                                : ''
+                          }`}
+                        >
+                          {product.stock}
+                        </strong>
+                        <span className="stock-unit"> unitÃ©s</span>
+                      </td>
+
+                      <td>
+                        <span
+                          className={`stock-status ${
+                            isOut
+                              ? 'stock-status-out'
+                              : isLow
+                                ? 'stock-status-low'
+                                : 'stock-status-ok'
+                          }`}
+                        >
+                          <span />
+                          {isOut
+                            ? 'Ã‰puisÃ©'
+                            : isLow
+                              ? 'Stock faible'
+                              : 'Disponible'}
+                        </span>
+                      </td>
+
+                      <td>
+                        <button
+                          type="button"
+                          className="stock-edit-button"
+                          onClick={() => onEdit(product)}
+                          title={`Modifier ${product.name}`}
+                          aria-label={`Modifier ${product.name}`}
+                        >
+                          <Pencil size={15} />
+                          Modifier
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="stock-table-footer">
+          <span>
+            Seuil d'alerte : <strong>5 unitÃ©s ou moins</strong>
+          </span>
+          <span>
+            <Boxes size={14} /> DonnÃ©es du catalogue
+          </span>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+
+===== src\pages\Statistiques.tsx =====
+
+
+import { useMemo } from 'react'
+import {
+  BarChart3,
+  Boxes,
+  Package,
+  AlertTriangle,
+  CircleDollarSign,
+} from 'lucide-react'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
+import type { Product } from './types'
+import './Statistiques.css'
+
+type StatistiquesProps = {
+  products: Product[]
+}
+
+const COLORS = ['#e53935', '#ff8a80', '#f5a623', '#64748b']
+
+export default function Statistiques({ products }: StatistiquesProps) {
+  const stats = useMemo(() => {
+    const totalUnits = products.reduce((sum, p) => sum + p.stock, 0)
+    const stockValue = products.reduce(
+      (sum, p) => sum + p.price * p.stock,
+      0,
+    )
+    const lowStock = products.filter(
+      p => p.stock > 0 && p.stock <= 5,
+    ).length
+    const outOfStock = products.filter(p => p.stock <= 0).length
+
+    const categoryData = Object.values(
+      products.reduce<Record<string, { category: string; count: number; units: number }>>(
+        (acc, p) => {
+          const category = p.category || 'Sans catÃ©gorie'
+
+          if (!acc[category]) {
+            acc[category] = { category, count: 0, units: 0 }
+          }
+
+          acc[category].count += 1
+          acc[category].units += p.stock
+          return acc
+        },
+        {},
+      ),
+    )
+
+    const stockData = [
+      {
+        name: 'Disponible',
+        value: products.filter(p => p.stock > 5).length,
+      },
+      { name: 'Stock faible', value: lowStock },
+      { name: 'Ã‰puisÃ©', value: outOfStock },
+    ].filter(item => item.value > 0)
+
+    return {
+      totalProducts: products.length,
+      totalUnits,
+      stockValue,
+      lowStock,
+      outOfStock,
+      categoryData,
+      stockData,
+    }
+  }, [products])
+
+  const formatPrice = (value: number) =>
+    `${value.toLocaleString('fr-FR', {
+      maximumFractionDigits: 2,
+    })} DH`
+
+  return (
+    <div className="statistics-page">
+      <div className="statistics-heading">
+        <div>
+          <h2>Statistiques</h2>
+          <p>Analyse globale de vos produits et de votre stock.</p>
+        </div>
+        <span className="statistics-live">
+          <span /> DonnÃ©es actuelles
+        </span>
+      </div>
+
+      <div className="statistics-cards">
+        <article className="stat-card">
+          <div className="stat-icon red"><Package size={21} /></div>
+          <span>Produits</span>
+          <strong>{stats.totalProducts}</strong>
+          <small>RÃ©fÃ©rences enregistrÃ©es</small>
+        </article>
+
+        <article className="stat-card">
+          <div className="stat-icon blue"><Boxes size={21} /></div>
+          <span>UnitÃ©s en stock</span>
+          <strong>{stats.totalUnits.toLocaleString('fr-FR')}</strong>
+          <small>QuantitÃ© totale disponible</small>
+        </article>
+
+        <article className="stat-card">
+          <div className="stat-icon orange"><AlertTriangle size={21} /></div>
+          <span>Alertes de stock</span>
+          <strong>{stats.lowStock + stats.outOfStock}</strong>
+          <small>{stats.lowStock} faibles Â· {stats.outOfStock} Ã©puisÃ©s</small>
+        </article>
+
+        <article className="stat-card">
+          <div className="stat-icon green"><CircleDollarSign size={21} /></div>
+          <span>Valeur du stock</span>
+          <strong className="stat-value">{formatPrice(stats.stockValue)}</strong>
+          <small>Prix Ã— quantitÃ© en stock</small>
+        </article>
+      </div>
+
+      <div className="statistics-charts">
+        <section className="statistics-panel">
+          <div className="statistics-panel-heading">
+            <div>
+              <h3>Produits par catÃ©gorie</h3>
+              <p>Nombre de rÃ©fÃ©rences et unitÃ©s en stock</p>
+            </div>
+            <BarChart3 size={20} />
+          </div>
+
+          {stats.categoryData.length === 0 ? (
+            <div className="statistics-empty">Aucun produit Ã  analyser.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={stats.categoryData} margin={{ top: 15, right: 10, left: -15, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eeeeee" />
+                <XAxis dataKey="category" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip />
+                <Bar dataKey="count" name="Produits" fill="#e53935" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="units" name="UnitÃ©s en stock" fill="#ffaaa5" radius={[5, 5, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </section>
+
+        <section className="statistics-panel">
+          <div className="statistics-panel-heading">
+            <div>
+              <h3>Ã‰tat du stock</h3>
+              <p>RÃ©partition des produits</p>
+            </div>
+            <Boxes size={20} />
+          </div>
+
+          {stats.totalProducts === 0 ? (
+            <div className="statistics-empty">Aucun produit Ã  analyser.</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={stats.stockData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={4}
+                  >
+                    {stats.stockData.map((entry, index) => (
+                      <Cell key={entry.name} fill={COLORS[index]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+
+              <div className="statistics-legend">
+                {stats.stockData.map((item, index) => (
+                  <div key={item.name}>
+                    <span style={{ background: COLORS[index] }} />
+                    {item.name}
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
+
+
+===== src\pages\Dashboard.tsx =====
+
+
+===== src\components\Sidebar.css =====
+
+
+.mediatech-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  width: 258px;
+  box-sizing: border-box;
+  padding: 23px 15px 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #fff;
+  border-right: 1px solid #eeeef2;
+  transition: width 0.25s ease, transform 0.25s ease;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 49px;
+  padding: 0 7px 24px;
+  border-bottom: 1px solid #f0f0f3;
+}
+
+.sidebar-logo {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 43px;
+  height: 43px;
+  color: #fff;
+  background: #e53935;
+  border-radius: 13px;
+  box-shadow: 0 5px 12px #e539352c;
+}
+
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.sidebar-brand-text strong {
+  color: #252631;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.7px;
+}
+
+.sidebar-brand-text strong span {
+  color: #e53935;
+}
+
+.sidebar-brand-text small {
+  color: #9293a0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.sidebar-navigation {
+  flex: 1;
+  padding-top: 24px;
+}
+
+.sidebar-section {
+  margin-bottom: 27px;
+}
+
+.sidebar-section-title {
+  margin: 0 0 12px 12px;
+  color: #a0a1ad;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.1px;
+  white-space: nowrap;
+}
+
+.sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 46px;
+  margin: 4px 0;
+  padding: 0 13px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #777989;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.sidebar-link > svg {
+  flex-shrink: 0;
+}
+
+.sidebar-link:hover {
+  color: #e53935;
+  background: #fff5f4;
+}
+
+.sidebar-link.active {
+  color: #e53935;
+  background: #fff0ef;
+  font-weight: 700;
+}
+
+.sidebar-active-mark {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 4px 0 0 4px;
+  background: #e53935;
+}
+
+.sidebar-link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-bottom {
+  padding-top: 14px;
+  border-top: 1px solid #f0f0f3;
+}
+
+.sidebar-help-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 14px 11px;
+  background: #fff6f5;
+  border: 1px solid #ffe4e1;
+  border-radius: 12px;
+}
+
+.sidebar-help-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  color: #e53935;
+  background: #fff;
+  border-radius: 9px;
+}
+
+.sidebar-help-text {
+  min-width: 0;
+}
+
+.sidebar-help-text strong {
+  color: #343540;
+  font-size: 12px;
+}
+
+.sidebar-help-text p {
+  margin: 6px 0 9px;
+  color: #858797;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.sidebar-help-text button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #e53935;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sidebar-collapse-button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 11px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #858797;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sidebar-collapse-button:hover {
+  background: #f7f7f9;
+  color: #e53935;
+}
+
+.sidebar-mobile-close {
+  display: none;
+  margin-left: auto;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: #777989;
+  cursor: pointer;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+/* Mode compact */
+.mediatech-sidebar.sidebar-collapsed {
+  width: 82px;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.sidebar-collapsed .sidebar-brand {
+  justify-content: center;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.sidebar-collapsed .sidebar-brand-text,
+.sidebar-collapsed .sidebar-section-title,
+.sidebar-collapsed .sidebar-link-label,
+.sidebar-collapsed .sidebar-help-card,
+.sidebar-collapsed .sidebar-collapse-button span {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-link {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar-collapsed .sidebar-active-mark {
+  right: -10px;
+}
+
+.sidebar-collapsed .sidebar-collapse-button {
+  justify-content: center;
+  padding: 11px 0;
+}
+
+/* Navigation mobile */
+@media (max-width: 800px) {
+  .mediatech-sidebar {
+    width: 270px;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .mediatech-sidebar.sidebar-mobile-open {
+    transform: translateX(0);
+    box-shadow: 15px 0 45px #17172220;
+  }
+
+  .mediatech-sidebar.sidebar-collapsed {
+    width: 270px;
+  }
+
+  .sidebar-collapsed .sidebar-brand-text,
+  .sidebar-collapsed .sidebar-section-title,
+  .sidebar-collapsed .sidebar-link-label,
+  .sidebar-collapsed .sidebar-help-card,
+  .sidebar-collapsed .sidebar-collapse-button span {
+    display: initial;
+  }
+
+  .sidebar-collapsed .sidebar-brand-text {
+    display: flex;
+  }
+
+  .sidebar-collapsed .sidebar-section-title {
+    display: block;
+  }
+
+  .sidebar-collapsed .sidebar-link {
+    justify-content: flex-start;
+    padding: 0 13px;
+  }
+
+  .sidebar-collapsed .sidebar-help-card {
+    display: flex;
+  }
+
+  .sidebar-collapsed .sidebar-collapse-button {
+    justify-content: flex-start;
+    padding: 11px 12px;
+  }
+
+  .sidebar-mobile-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    display: block;
+    border: 0;
+    background: #17172270;
+  }
+}
+
+
+===== src\components\Layout.css =====
+
+
+.mediatech-layout {
+  --sidebar-width: 258px;
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.mediatech-layout.layout-collapsed {
+  --sidebar-width: 82px;
+}
+
+.layout-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.25s ease;
+}
+
+.layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 76px;
+  padding: 0 30px;
+  background: #fff;
+  border-bottom: 1px solid #eeeef2;
+}
+
+.layout-header-left,
+.layout-header-actions,
+.layout-breadcrumb,
+.layout-profile {
+  display: flex;
+  align-items: center;
+}
+
+.layout-header-left {
+  min-width: 0;
+  gap: 12px;
+}
+
+.layout-breadcrumb {
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.layout-breadcrumb > span:first-child {
+  color: #999aa7;
+}
+
+.layout-breadcrumb-separator {
+  color: #d0d0d8;
+}
+
+.layout-breadcrumb strong {
+  color: #292a35;
+  font-weight: 700;
+}
+
+.layout-header-actions {
+  gap: 12px;
+}
+
+.layout-icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 39px;
+  height: 39px;
+  padding: 0;
+  color: #696b7a;
+  background: #fff;
+  border: 1px solid #eeeef2;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.layout-icon-button:hover {
+  color: #e53935;
+  background: #fff5f4;
+  border-color: #ffe0dd;
+}
+
+.layout-mobile-menu {
+  display: none;
+}
+
+.layout-notification-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #e53935;
+}
+
+.layout-profile {
+  gap: 10px;
+  padding-left: 16px;
+  border-left: 1px solid #eeeef2;
+}
+
+.layout-avatar {
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  color: #fff;
+  background: #e53935;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.layout-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.layout-profile-info strong {
+  color: #292a35;
+  font-size: 12px;
+}
+
+.layout-profile-info span {
+  color: #9293a0;
+  font-size: 10px;
+}
+
+.layout-profile-chevron {
+  color: #9293a0;
+}
+
+.layout-header-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(250px, 30vw);
+  padding: 0 10px;
+  border: 1px solid #e3e4ea;
+  border-radius: 9px;
+  color: #858797;
+}
+
+.layout-header-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #292a35;
+  font: inherit;
+  font-size: 12px;
+}
+
+.layout-search-close {
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  color: #858797;
+  cursor: pointer;
+}
+
+.layout-content {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px 30px;
+}
+
+.layout-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 18px 30px;
+  color: #999aa7;
+  border-top: 1px solid #eeeef2;
+  background: #fff;
+  font-size: 11px;
+}
+
+@media (max-width: 1000px) {
+  .layout-header {
+    padding: 0 20px;
+  }
+
+  .layout-content {
+    padding: 23px 20px;
+  }
+
+  .layout-profile-info,
+  .layout-profile-chevron {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .mediatech-layout,
+  .mediatech-layout.layout-collapsed {
+    --sidebar-width: 0px;
+  }
+
+  .layout-main {
+    margin-left: 0;
+  }
+
+  .layout-mobile-menu {
+    display: grid;
+  }
+
+  .layout-header {
+    min-height: 66px;
+    padding: 0 15px;
+  }
+
+  .layout-content {
+    padding: 20px 15px;
+  }
+
+  .layout-footer {
+    padding: 16px 15px;
+  }
+
+  .layout-header-actions {
+    gap: 7px;
+  }
+
+  .layout-header-search {
+    position: absolute;
+    top: 72px;
+    right: 15px;
+    width: min(300px, calc(100vw - 30px));
+    box-sizing: border-box;
+    background: #fff;
+    box-shadow: 0 8px 25px #17172212;
+  }
+}
+
+@media (max-width: 460px) {
+  .layout-breadcrumb {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .layout-profile {
+    padding-left: 8px;
+  }
+
+  .layout-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .layout-footer {
+    font-size: 10px;
+  }
+}
+

@@ -1,0 +1,273 @@
+
+.mediatech-layout {
+  --sidebar-width: 258px;
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.mediatech-layout.layout-collapsed {
+  --sidebar-width: 82px;
+}
+
+.layout-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.25s ease;
+}
+
+.layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 76px;
+  padding: 0 30px;
+  background: #fff;
+  border-bottom: 1px solid #eeeef2;
+}
+
+.layout-header-left,
+.layout-header-actions,
+.layout-breadcrumb,
+.layout-profile {
+  display: flex;
+  align-items: center;
+}
+
+.layout-header-left {
+  min-width: 0;
+  gap: 12px;
+}
+
+.layout-breadcrumb {
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.layout-breadcrumb > span:first-child {
+  color: #999aa7;
+}
+
+.layout-breadcrumb-separator {
+  color: #d0d0d8;
+}
+
+.layout-breadcrumb strong {
+  color: #292a35;
+  font-weight: 700;
+}
+
+.layout-header-actions {
+  gap: 12px;
+}
+
+.layout-icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 39px;
+  height: 39px;
+  padding: 0;
+  color: #696b7a;
+  background: #fff;
+  border: 1px solid #eeeef2;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.layout-icon-button:hover {
+  color: #e53935;
+  background: #fff5f4;
+  border-color: #ffe0dd;
+}
+
+.layout-mobile-menu {
+  display: none;
+}
+
+.layout-notification-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #e53935;
+}
+
+.layout-profile {
+  gap: 10px;
+  padding-left: 16px;
+  border-left: 1px solid #eeeef2;
+}
+
+.layout-avatar {
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  color: #fff;
+  background: #e53935;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.layout-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.layout-profile-info strong {
+  color: #292a35;
+  font-size: 12px;
+}
+
+.layout-profile-info span {
+  color: #9293a0;
+  font-size: 10px;
+}
+
+.layout-profile-chevron {
+  color: #9293a0;
+}
+
+.layout-header-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(250px, 30vw);
+  padding: 0 10px;
+  border: 1px solid #e3e4ea;
+  border-radius: 9px;
+  color: #858797;
+}
+
+.layout-header-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #292a35;
+  font: inherit;
+  font-size: 12px;
+}
+
+.layout-search-close {
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  color: #858797;
+  cursor: pointer;
+}
+
+.layout-content {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px 30px;
+}
+
+.layout-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 18px 30px;
+  color: #999aa7;
+  border-top: 1px solid #eeeef2;
+  background: #fff;
+  font-size: 11px;
+}
+
+@media (max-width: 1000px) {
+  .layout-header {
+    padding: 0 20px;
+  }
+
+  .layout-content {
+    padding: 23px 20px;
+  }
+
+  .layout-profile-info,
+  .layout-profile-chevron {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .mediatech-layout,
+  .mediatech-layout.layout-collapsed {
+    --sidebar-width: 0px;
+  }
+
+  .layout-main {
+    margin-left: 0;
+  }
+
+  .layout-mobile-menu {
+    display: grid;
+  }
+
+  .layout-header {
+    min-height: 66px;
+    padding: 0 15px;
+  }
+
+  .layout-content {
+    padding: 20px 15px;
+  }
+
+  .layout-footer {
+    padding: 16px 15px;
+  }
+
+  .layout-header-actions {
+    gap: 7px;
+  }
+
+  .layout-header-search {
+    position: absolute;
+    top: 72px;
+    right: 15px;
+    width: min(300px, calc(100vw - 30px));
+    box-sizing: border-box;
+    background: #fff;
+    box-shadow: 0 8px 25px #17172212;
+  }
+}
+
+@media (max-width: 460px) {
+  .layout-breadcrumb {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .layout-profile {
+    padding-left: 8px;
+  }
+
+  .layout-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .layout-footer {
+    font-size: 10px;
+  }
+}

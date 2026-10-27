@@ -1,0 +1,838 @@
+
+/* =========================================
+   MEDIATECH - CENTRE D'AIDE
+   ========================================= */
+
+.help-page {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  width: 100%;
+  min-width: 0;
+  color: #272833;
+}
+
+.help-page *,
+.help-page *::before,
+.help-page *::after {
+  box-sizing: border-box;
+}
+
+/* =========================================
+   HERO
+   ========================================= */
+
+.help-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  overflow: hidden;
+  padding: 35px;
+  border: 1px solid #ffe0dd;
+  border-radius: 18px;
+  background: linear-gradient(120deg, #fff0ef, #fff 75%);
+}
+
+.help-hero-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 650px;
+  min-width: 0;
+}
+
+.help-eyebrow {
+  display: inline-block;
+  color: #e53935;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.help-hero h2 {
+  margin: 12px 0;
+  color: #272833;
+  font-size: clamp(23px, 3vw, 32px);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.help-hero p {
+  max-width: 540px;
+  margin: 0;
+  color: #777989;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.help-search {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 49px;
+  margin-top: 24px;
+  padding: 0 15px;
+  background: #fff;
+  border: 1px solid #e8e8ed;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px #292a3508;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.help-search:focus-within {
+  border-color: #e53935;
+  box-shadow: 0 0 0 3px #e5393514;
+}
+
+.help-search > svg {
+  flex-shrink: 0;
+  color: #999aa7;
+}
+
+.help-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 13px 0;
+  color: #272833;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.help-search input::placeholder {
+  color: #999aa7;
+}
+
+.help-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.help-search button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 6px;
+  color: #e53935;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.help-search button:hover {
+  background: #fff0ef;
+}
+
+.help-hero-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 140px;
+  height: 140px;
+  color: #e53935;
+  background: #ffffffa8;
+  border: 1px solid #ffe0dd;
+  border-radius: 50%;
+}
+
+/* =========================================
+   SECTION HEADINGS
+   ========================================= */
+
+.help-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 16px;
+}
+
+.help-section-heading > div {
+  min-width: 0;
+}
+
+.help-section-heading h3,
+.help-contact-intro h3 {
+  margin: 0 0 7px;
+  color: #272833;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.help-section-heading p {
+  margin: 0;
+  color: #858797;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.help-section-heading > svg {
+  flex-shrink: 0;
+  color: #e53935;
+}
+
+/* =========================================
+   LIVE API DATA
+   ========================================= */
+
+.help-live-section {
+  min-width: 0;
+}
+
+.help-refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 9px 13px;
+  color: #e53935;
+  background: #fff;
+  border: 1px solid #ffc6c2;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.help-refresh-button:hover:not(:disabled) {
+  background: #fff0ef;
+  border-color: #e53935;
+}
+
+.help-refresh-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.help-api-status {
+  padding: 19px;
+  color: #777989;
+  background: #fff;
+  border: 1px solid #eeeef2;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.help-api-error {
+  padding: 20px;
+  color: #991b1b;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.help-api-error strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 14px;
+}
+
+.help-api-error p {
+  margin: 7px 0;
+}
+
+.help-api-error button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  padding: 10px 15px;
+  color: #fff;
+  background: #e53935;
+  border: 1px solid #e53935;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.help-api-error button:hover:not(:disabled) {
+  background: #c92d29;
+}
+
+.help-api-error button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.help-live-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.help-live-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 155px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #eeeef2;
+  border-radius: 13px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.help-live-card:hover {
+  border-color: #ffc6c2;
+  box-shadow: 0 6px 18px #25263108;
+}
+
+.help-live-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 43px;
+  height: 43px;
+  color: #e53935;
+  background: #fff0ef;
+  border-radius: 11px;
+}
+
+.help-live-card p {
+  margin: 0;
+  color: #777989;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.help-live-card strong {
+  max-width: 100%;
+  color: #272833;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.help-live-card .help-live-value {
+  font-size: clamp(16px, 1.45vw, 22px);
+}
+
+.help-live-card small {
+  color: #858797;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.help-api-updated {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 0 0;
+  color: #21864a;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.help-api-updated svg {
+  flex-shrink: 0;
+}
+
+.help-spin {
+  animation: help-rotate 1s linear infinite;
+}
+
+@keyframes help-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================
+   TOPIC CARDS
+   ========================================= */
+
+.help-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.help-topic-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+  min-height: 175px;
+  padding: 20px;
+  color: #272833;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #eeeef2;
+  border-radius: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.help-topic-card:hover {
+  border-color: #ffc6c2;
+  transform: translateY(-2px);
+  box-shadow: 0 7px 20px #25263108;
+}
+
+.help-topic-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 43px;
+  height: 43px;
+  color: #e53935;
+  background: #fff0ef;
+  border-radius: 11px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.help-topic-card:hover .help-topic-icon {
+  color: #fff;
+  background: #e53935;
+}
+
+.help-topic-card strong {
+  color: #30313c;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.help-topic-card > span:last-child {
+  color: #858797;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* =========================================
+   FAQ
+   ========================================= */
+
+.help-faq-section {
+  min-width: 0;
+}
+
+.help-faq-list {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #eeeef2;
+  border-radius: 13px;
+}
+
+.help-faq-item + .help-faq-item {
+  border-top: 1px solid #f0f0f3;
+}
+
+.help-faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  padding: 19px 21px;
+  color: #30313c;
+  text-align: left;
+  background: #fff;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.6;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.help-faq-question:hover {
+  color: #d83232;
+  background: #fffafa;
+}
+
+.help-faq-question > span {
+  min-width: 0;
+}
+
+.help-faq-question svg {
+  flex-shrink: 0;
+  color: #e53935;
+}
+
+.help-faq-answer {
+  padding: 0 21px 20px;
+  animation: help-appear 0.18s ease-out;
+}
+
+.help-faq-answer > span {
+  display: inline-block;
+  padding: 5px 9px;
+  color: #d83232;
+  background: #fff0ef;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.help-faq-answer p {
+  margin: 12px 0 0;
+  color: #777989;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.help-no-results {
+  padding: 30px 20px;
+  color: #858797;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* =========================================
+   CONTACT
+   ========================================= */
+
+.help-contact {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 30px;
+  min-width: 0;
+  padding: 27px;
+  background: #fff;
+  border: 1px solid #eeeef2;
+  border-radius: 15px;
+}
+
+.help-contact-intro {
+  min-width: 0;
+}
+
+.help-contact-icon {
+  display: grid;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  margin-bottom: 18px;
+  color: #e53935;
+  background: #fff0ef;
+  border-radius: 13px;
+}
+
+.help-contact-intro h3 {
+  line-height: 1.5;
+}
+
+.help-contact-intro > p {
+  margin: 0;
+  color: #858797;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.help-contact-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 20px;
+  color: #777989;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.help-contact-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #e53935;
+}
+
+/* =========================================
+   CONTACT FORM
+   ========================================= */
+
+.help-contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-width: 0;
+}
+
+.help-contact-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #444654;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.help-contact-form input,
+.help-contact-form select,
+.help-contact-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 13px;
+  color: #272833;
+  background: #fff;
+  border: 1px solid #e3e4ea;
+  border-radius: 9px;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.help-contact-form input,
+.help-contact-form select {
+  min-height: 44px;
+}
+
+.help-contact-form textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.help-contact-form input::placeholder,
+.help-contact-form textarea::placeholder {
+  color: #999aa7;
+}
+
+.help-contact-form select {
+  cursor: pointer;
+}
+
+.help-contact-form input:focus,
+.help-contact-form select:focus,
+.help-contact-form textarea:focus {
+  border-color: #e53935;
+  box-shadow: 0 0 0 3px #e5393514;
+}
+
+.help-send-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  align-self: flex-start;
+  min-height: 43px;
+  padding: 12px 17px;
+  color: #fff;
+  background: #e53935;
+  border: 1px solid #e53935;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.help-send-button:hover {
+  background: #c92d29;
+  transform: translateY(-1px);
+}
+
+.help-send-button:active {
+  transform: translateY(0);
+}
+
+.help-submit-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  color: #21864a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.help-submit-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* =========================================
+   ACCESSIBILITY
+   ========================================= */
+
+.help-page button:focus-visible {
+  outline: 3px solid #e5393555;
+  outline-offset: 3px;
+}
+
+/* =========================================
+   ANIMATION
+   ========================================= */
+
+@keyframes help-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================
+   TABLET
+   ========================================= */
+
+@media (max-width: 1000px) {
+  .help-topic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .help-live-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .help-contact {
+    grid-template-columns: 1fr;
+  }
+
+  .help-hero-icon {
+    width: 110px;
+    height: 110px;
+  }
+
+  .help-hero-icon svg {
+    width: 68px;
+    height: 68px;
+  }
+}
+
+/* =========================================
+   MOBILE
+   ========================================= */
+
+@media (max-width: 600px) {
+  .help-page {
+    gap: 21px;
+  }
+
+  .help-hero {
+    padding: 23px;
+    border-radius: 14px;
+  }
+
+  .help-hero-icon {
+    display: none;
+  }
+
+  .help-hero h2 {
+    font-size: 25px;
+  }
+
+  .help-hero p {
+    font-size: 13px;
+  }
+
+  .help-search {
+    gap: 9px;
+    padding: 0 12px;
+  }
+
+  .help-topic-grid,
+  .help-live-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .help-topic-card {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .help-live-card {
+    min-height: auto;
+    padding: 17px;
+  }
+
+  .help-live-card .help-live-value {
+    font-size: 22px;
+  }
+
+  .help-contact {
+    gap: 24px;
+    padding: 19px;
+  }
+
+  .help-faq-question {
+    padding: 16px;
+  }
+
+  .help-faq-answer {
+    padding: 0 16px 17px;
+  }
+
+  .help-send-button {
+    align-self: stretch;
+  }
+
+  .help-refresh-button {
+    padding: 9px 10px;
+  }
+}
+
+/* =========================================
+   SMALL MOBILE
+   ========================================= */
+
+@media (max-width: 380px) {
+  .help-hero {
+    padding: 18px;
+  }
+
+  .help-hero h2 {
+    font-size: 22px;
+  }
+
+  .help-section-heading h3,
+  .help-contact-intro h3 {
+    font-size: 16px;
+  }
+
+  .help-contact {
+    padding: 15px;
+  }
+
+  .help-live-card .help-live-value {
+    font-size: 19px;
+  }
+}
+
+/* =========================================
+   REDUCED MOTION
+   ========================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .help-page *,
+  .help-page *::before,
+  .help-page *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
