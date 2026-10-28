@@ -1,4 +1,4 @@
-
+﻿
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Package, Plus, Search, Pencil, Trash2, X, RefreshCw } from 'lucide-react'
 import './Produits.css'
@@ -100,7 +100,7 @@ export default function Produits() {
         }
       )
 
-      if (!response.ok) throw new Error('Échec de l’enregistrement.')
+      if (!response.ok) throw new Error('Ã‰chec de lâ€™enregistrement.')
 
       setShowForm(false)
       await loadProducts()
@@ -134,7 +134,7 @@ export default function Produits() {
         <div>
           <span className="products-eyebrow">INVENTAIRE</span>
           <h1>Produits</h1>
-          <p>Gérez les produits de votre boutique MediaTech.</p>
+          <p>GÃ©rez les produits de votre boutique MediaTech.</p>
         </div>
 
         <button className="product-primary-btn" onClick={addProduct}>
@@ -163,7 +163,7 @@ export default function Produits() {
         <article className="product-stat-card">
           <Package size={25} />
           <div>
-            <p>Unités en stock</p>
+            <p>UnitÃ©s en stock</p>
             <h2>{stockTotal}</h2>
           </div>
         </article>
@@ -207,7 +207,7 @@ export default function Produits() {
         ) : filteredProducts.length === 0 ? (
           <div className="products-empty">
             <Package size={35} />
-            <h3>Aucun produit trouvé</h3>
+            <h3>Aucun produit trouvÃ©</h3>
             <p>Ajoutez un produit ou changez votre recherche.</p>
           </div>
         ) : (
@@ -216,7 +216,7 @@ export default function Produits() {
               <thead>
                 <tr>
                   <th>Produit</th>
-                  <th>Catégorie</th>
+                  <th>CatÃ©gorie</th>
                   <th>Prix</th>
                   <th>Stock</th>
                   <th>Valeur du stock</th>
@@ -228,18 +228,26 @@ export default function Produits() {
                   <tr key={product.id}>
                     <td>
                       <div className="product-name-cell">
-                        <span className="product-avatar">
-                          <Package size={20} />
-                        </span>
-                        <div>
-                          <strong>{product.name}</strong>
-                          <small>{product.description || 'Sans description'}</small>
-                        </div>
-                      </div>
+  {product.imageUrl ? (
+    <img
+      src={product.imageUrl}
+      alt={product.name}
+      className="product-image"
+    />
+  ) : (
+    <span className="product-avatar">
+      <Package size={20} />
+    </span>
+  )}
+  <div>
+    <strong>{product.name}</strong>
+    <small>{product.description || 'Sans description'}</small>
+  </div>
+</div>
                     </td>
                     <td>
                       <span className="product-category">
-                        {product.category || 'Non classé'}
+                        {product.category || 'Non classÃ©'}
                       </span>
                     </td>
                     <td>{product.price.toLocaleString('fr-FR')} MAD</td>
@@ -249,7 +257,7 @@ export default function Produits() {
                           : product.stock <= 5 ? 'stock-badge stock-low'
                             : 'stock-badge stock-ok'
                       }>
-                        {product.stock === 0 ? 'Épuisé' : product.stock}
+                        {product.stock === 0 ? 'Ã‰puisÃ©' : product.stock}
                       </span>
                     </td>
                     <td>
@@ -338,7 +346,7 @@ export default function Produits() {
               </div>
 
               <label>
-                Catégorie *
+                CatÃ©gorie *
                 <input
                   required
                   value={form.category}
@@ -367,3 +375,4 @@ export default function Produits() {
     </main>
   )
 }
+

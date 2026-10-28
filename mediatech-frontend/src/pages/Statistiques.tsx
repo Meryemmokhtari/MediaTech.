@@ -1,11 +1,63 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Boxes, Package, AlertTriangle, CircleDollarSign } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import {
+  BarChart3,
+  Boxes,
+  Package,
+  AlertTriangle,
+  CircleDollarSign,
+  Download,
+  Printer,
+  TrendingUp,
+} from 'lucide-react'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
 import type { Product } from './types'
 import './Statistiques.css'
 
 const API_URL = 'http://localhost:5091/api/products'
-const COLORS = ['#e53935', '#ff8a80', '#f5a623', '#64748b']
+
+const STATUS_COLORS: Record<string, string> = {
+  Disponible: '#16a34a',
+  'Stock faible': '#f5a623',
+  Épuisé: '#e53935',
+}
+
+function extractProducts(data: unknown): Product[] {
+  if (Array.isArray(data)) {
+    return data as Product[]
+  }
+
+  if (typeof data === 'object' && data !== null && 'value' in data) {
+    const value = (data as { value?: unknown }).value
+    if (Array.isArray(value)) {
+      return value as Product[]
+    }
+  }
+
+  throw new Error('Format des produits invalide')
+}
+
+function getStockStatus(stock: number) {
+  if (stock <= 0) {
+    return { label: 'Épuisé', className: 'status-out' }
+  }
+
+  if (stock <= 5) {
+    return { label: 'Stock faible', className: 'status-low' }
+  }
+
+  return { label: 'Disponible', className: 'status-available' }
+}
 
 export default function Statistiques() {
   const [products, setProducts] = useState<Product[]>([])
@@ -13,94 +65,431 @@ export default function Statistiques() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch(API_URL)
-      .then(response => {
-        if (!response.ok) throw new Error()
-        return response.json()
-      })
-      .then((data: Product[]) => setProducts(data))
-      .catch(() => setError('Impossible de charger les statistiques. Vérifiez le backend.'))
-      .finally(() => setLoading(false))
+    let cancelled = false
+
+    async function loadProducts() {
+      try {
+        const response = await fetch(API_URL)
+
+        if (!response.ok) {
+          throw new Error('Erreur HTTP')
+        }
+
+        const data: unknown = await response.json()
+        const list = extractProducts(data)
+
+        if (!cancelled) {
+          setProducts(list)
+          setError('')
+        }
+      } catch {
+        if (!cancelled) {
+          setError(
+            'Impossible de charger les statistiques. Vérifiez le backend.'
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadProducts()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const stats = useMemo(() => {
-    const totalUnits = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0)
-    const stockValue = products.reduce((sum, p) => sum + (Number(p.price) || 0) * (Number(p.stock) || 0), 0)
-    const lowStock = products.filter(p => Number(p.stock) > 0 && Number(p.stock) <= 5).length
-    const outOfStock = products.filter(p => Number(p.stock) <= 0).length
+    const totalUnits = products.reduce(
+      (sum, product) => sum + Math.max(0, Number(product.stock) || 0),
+      0
+    )
 
-    const categoryData = Object.values(products.reduce<Record<string, { category: string; count: number; units: number }>>((acc, p) => {
-      const category = p.category || 'Sans catégorie'
-      if (!acc[category]) acc[category] = { category, count: 0, units: 0 }
+    const stockValue = products.reduce((sum, product) => {
+      const price = Math.max(0, Number(product.price) || 0)
+      const stock = Math.max(0, Number(product.stock) || 0)
+      return sum + price * stock
+    }, 0)
+
+    const lowStock = products.filter(product => {
+      const stock = Number(product.stock) || 0
+      return stock > 0 && stock <= 5
+    }).length
+
+    const outOfStock = products.filter(
+      product => (Number(product.stock) || 0) <= 0
+    ).length
+
+    const grouped = products.reduce<
+      Record<string, { category: string; count: number; units: number }>
+    >((acc, product) => {
+      const category = product.category?.trim() || 'Sans catégorie'
+
+      if (!acc[category]) {
+        acc[category] = { category, count: 0, units: 0 }
+      }
+
       acc[category].count += 1
-      acc[category].units += Number(p.stock) || 0
+      acc[category].units += Math.max(0, Number(product.stock) || 0)
+
       return acc
-    }, {}))
+    }, {})
+
+    const categoryData = Object.values(grouped).sort(
+      (a, b) => b.count - a.count
+    )
 
     const stockData = [
-      { name: 'Disponible', value: products.filter(p => Number(p.stock) > 5).length },
+      {
+        name: 'Disponible',
+        value: products.filter(
+          product => (Number(product.stock) || 0) > 5
+        ).length,
+      },
       { name: 'Stock faible', value: lowStock },
       { name: 'Épuisé', value: outOfStock },
-    ].filter(item => item.value > 0)
+    ]
 
-    return { totalProducts: products.length, totalUnits, stockValue, lowStock, outOfStock, categoryData, stockData }
+    const rankedProducts = products
+      .map(product => ({
+        product,
+        value:
+          Math.max(0, Number(product.price) || 0) *
+          Math.max(0, Number(product.stock) || 0),
+      }))
+      .sort((a, b) => b.value - a.value)
+
+    return {
+      totalProducts: products.length,
+      totalUnits,
+      stockValue,
+      lowStock,
+      outOfStock,
+      categoryData,
+      stockData,
+      rankedProducts,
+    }
   }, [products])
 
-  const formatPrice = (value: number) => `${value.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} DH`
+  const formatPrice = (value: number) =>
+    `${value.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })} DH`
+
+  function exportCsv() {
+    const headers = [
+      'Produit',
+      'Catégorie',
+      'Prix unitaire (DH)',
+      'Quantité en stock',
+      'Valeur du stock (DH)',
+      'État du stock',
+    ]
+
+    const rows = products.map(product => {
+      const price = Math.max(0, Number(product.price) || 0)
+      const stock = Math.max(0, Number(product.stock) || 0)
+      const status = getStockStatus(Number(product.stock) || 0)
+
+      return [
+        product.name,
+        product.category || 'Sans catégorie',
+        price,
+        stock,
+        price * stock,
+        status.label,
+      ]
+    })
+
+    const escapeCsv = (value: string | number) =>
+      `"${String(value ?? '').replace(/"/g, '""')}"`
+
+    const csv = [headers, ...rows]
+      .map(row => row.map(escapeCsv).join(';'))
+      .join('\r\n')
+
+    const blob = new Blob(['\uFEFF' + csv], {
+      type: 'text/csv;charset=utf-8;',
+    })
+
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = 'MediaTech-Statistiques.csv'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const maxProductValue = stats.rankedProducts[0]?.value || 1
 
   return (
     <div className="statistics-page">
       <div className="statistics-heading">
-        <div><h2>Statistiques</h2><p>Analyse globale de vos produits et de votre stock.</p></div>
-        <span className="statistics-live"><span /> Données actuelles</span>
+        <div>
+          <h2>Statistiques</h2>
+          <p>
+            Analyse globale de vos produits et de votre stock.
+          </p>
+        </div>
+
+        <div className="statistics-actions">
+          <span className="statistics-live">
+            <span /> Données actuelles
+          </span>
+
+          <button type="button" onClick={exportCsv} disabled={loading || products.length === 0}>
+            <Download size={16} />
+            Exporter CSV
+          </button>
+
+          <button type="button" onClick={() => window.print()}>
+            <Printer size={16} />
+            Imprimer / PDF
+          </button>
+        </div>
       </div>
 
       {error && <p className="statistics-error">{error}</p>}
-      {loading && <p>Chargement des statistiques...</p>}
+      {loading && <p className="statistics-loading">Chargement des statistiques...</p>}
 
       <div className="statistics-cards">
-        <article className="stat-card"><div className="stat-icon red"><Package size={21} /></div><span>Produits</span><strong>{loading ? '...' : stats.totalProducts}</strong><small>Références enregistrées</small></article>
-        <article className="stat-card"><div className="stat-icon blue"><Boxes size={21} /></div><span>Unités en stock</span><strong>{loading ? '...' : stats.totalUnits.toLocaleString('fr-FR')}</strong><small>Quantité totale disponible</small></article>
-        <article className="stat-card"><div className="stat-icon orange"><AlertTriangle size={21} /></div><span>Alertes de stock</span><strong>{loading ? '...' : stats.lowStock + stats.outOfStock}</strong><small>{stats.lowStock} faibles · {stats.outOfStock} épuisés</small></article>
-        <article className="stat-card"><div className="stat-icon green"><CircleDollarSign size={21} /></div><span>Valeur du stock</span><strong className="stat-value">{loading ? '...' : formatPrice(stats.stockValue)}</strong><small>Prix × quantité en stock</small></article>
+        <article className="stat-card">
+          <div className="stat-icon red"><Package size={21} /></div>
+          <span>Produits</span>
+          <strong>{loading ? '...' : stats.totalProducts}</strong>
+          <small>Références enregistrées</small>
+        </article>
+
+        <article className="stat-card">
+          <div className="stat-icon blue"><Boxes size={21} /></div>
+          <span>Unités en stock</span>
+          <strong>{loading ? '...' : stats.totalUnits.toLocaleString('fr-FR')}</strong>
+          <small>Quantité totale disponible</small>
+        </article>
+
+        <article className="stat-card">
+          <div className="stat-icon orange"><AlertTriangle size={21} /></div>
+          <span>Alertes de stock</span>
+          <strong>{loading ? '...' : stats.lowStock + stats.outOfStock}</strong>
+          <small>{stats.lowStock} faibles · {stats.outOfStock} épuisés</small>
+        </article>
+
+        <article className="stat-card">
+          <div className="stat-icon green"><CircleDollarSign size={21} /></div>
+          <span>Valeur du stock</span>
+          <strong className="stat-value">
+            {loading ? '...' : formatPrice(stats.stockValue)}
+          </strong>
+          <small>Prix × quantité en stock</small>
+        </article>
       </div>
 
       <div className="statistics-charts">
         <section className="statistics-panel">
-          <div className="statistics-panel-heading"><div><h3>Produits par catégorie</h3><p>Nombre de références et unités en stock</p></div><BarChart3 size={20} /></div>
-          {stats.categoryData.length === 0 ? <div className="statistics-empty">Aucun produit à analyser.</div> : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats.categoryData} margin={{ top: 15, right: 10, left: -15, bottom: 5 }}>
+          <div className="statistics-panel-heading">
+            <div>
+              <h3>Produits par catégorie</h3>
+              <p>Nombre de références enregistrées</p>
+            </div>
+            <BarChart3 size={20} />
+          </div>
+
+          {stats.categoryData.length === 0 ? (
+            <div className="statistics-empty">Aucun produit à analyser.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={stats.categoryData}
+                margin={{ top: 12, right: 10, left: -15, bottom: 5 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eeeeee" />
                 <XAxis dataKey="category" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip />
                 <Bar dataKey="count" name="Produits" fill="#e53935" radius={[5, 5, 0, 0]} />
-                <Bar dataKey="units" name="Unités en stock" fill="#ffaaa5" radius={[5, 5, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </section>
 
         <section className="statistics-panel">
-          <div className="statistics-panel-heading"><div><h3>État du stock</h3><p>Répartition des produits</p></div><Boxes size={20} /></div>
-          {stats.totalProducts === 0 ? <div className="statistics-empty">Aucun produit à analyser.</div> : (
+          <div className="statistics-panel-heading">
+            <div>
+              <h3>État du stock</h3>
+              <p>Répartition des références par état</p>
+            </div>
+            <Boxes size={20} />
+          </div>
+
+          {stats.totalProducts === 0 ? (
+            <div className="statistics-empty">Aucun produit à analyser.</div>
+          ) : (
             <>
-              <ResponsiveContainer width="100%" height={240}>
+              <ResponsiveContainer width="100%" height={230}>
                 <PieChart>
-                  <Pie data={stats.stockData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4}>
-                    {stats.stockData.map((entry, index) => <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />)}
+                  <Pie
+                    data={stats.stockData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={3}
+                  >
+                    {stats.stockData.map(entry => (
+                      <Cell
+                        key={entry.name}
+                        fill={STATUS_COLORS[entry.name]}
+                      />
+                    ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
+
               <div className="statistics-legend">
-                {stats.stockData.map((item, index) => <div key={item.name}><span style={{ background: COLORS[index % COLORS.length] }} />{item.name}<strong>{item.value}</strong></div>)}
+                {stats.stockData.map(item => (
+                  <div key={item.name}>
+                    <span style={{ background: STATUS_COLORS[item.name] }} />
+                    {item.name}
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
               </div>
             </>
           )}
         </section>
+
+        <section className="statistics-panel">
+          <div className="statistics-panel-heading">
+            <div>
+              <h3>Unités par catégorie</h3>
+              <p>Quantité réelle disponible dans le stock</p>
+            </div>
+            <Boxes size={20} />
+          </div>
+
+          {stats.categoryData.length === 0 ? (
+            <div className="statistics-empty">Aucun produit à analyser.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={stats.categoryData}
+                margin={{ top: 12, right: 10, left: -15, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eeeeee" />
+                <XAxis dataKey="category" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip />
+                <Bar dataKey="units" name="Unités en stock" fill="#f5a623" radius={[5, 5, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </section>
       </div>
+
+      <section className="statistics-panel statistics-top-panel">
+        <div className="statistics-panel-heading">
+          <div>
+            <h3>Top 5 des produits par valeur</h3>
+            <p>Classement selon le prix unitaire × quantité en stock</p>
+          </div>
+          <TrendingUp size={20} />
+        </div>
+
+        {stats.rankedProducts.length === 0 ? (
+          <div className="statistics-empty">Aucun produit à analyser.</div>
+        ) : (
+          <div className="top-products-list">
+            {stats.rankedProducts.slice(0, 5).map((item, index) => (
+              <div className="top-product-row" key={item.product.id}>
+                <span className="top-product-rank">{index + 1}</span>
+
+                <div className="top-product-main">
+                  <div className="top-product-title">
+                    <strong>{item.product.name}</strong>
+                    <span>{item.product.category || 'Sans catégorie'}</span>
+                  </div>
+                  <div className="top-product-track">
+                    <span
+                      style={{
+                        width: `${Math.max(0, (item.value / maxProductValue) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <strong className="top-product-value">
+                  {formatPrice(item.value)}
+                </strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="statistics-panel statistics-table-panel">
+        <div className="statistics-panel-heading">
+          <div>
+            <h3>Détail du stock</h3>
+            <p>{stats.totalProducts} référence(s) enregistrée(s)</p>
+          </div>
+          <Package size={20} />
+        </div>
+
+        {stats.rankedProducts.length === 0 ? (
+          <div className="statistics-empty">Aucun produit à afficher.</div>
+        ) : (
+          <div className="statistics-table-wrap">
+            <table className="statistics-table">
+              <thead>
+                <tr>
+                  <th>Produit</th>
+                  <th>Catégorie</th>
+                  <th>Prix unitaire</th>
+                  <th>Quantité</th>
+                  <th>Valeur du stock</th>
+                  <th>État</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {stats.rankedProducts.map(item => {
+                  const product = item.product
+                  const stock = Number(product.stock) || 0
+                  const status = getStockStatus(stock)
+
+                  return (
+                    <tr key={product.id}>
+                      <td>
+                        <strong>{product.name}</strong>
+                        <small>{product.description || 'Sans description'}</small>
+                      </td>
+                      <td>{product.category || 'Sans catégorie'}</td>
+                      <td>{formatPrice(Number(product.price) || 0)}</td>
+                      <td>{Math.max(0, stock).toLocaleString('fr-FR')}</td>
+                      <td><strong>{formatPrice(item.value)}</strong></td>
+                      <td>
+                        <span className={`stock-status-badge ${status.className}`}>
+                          {status.label}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

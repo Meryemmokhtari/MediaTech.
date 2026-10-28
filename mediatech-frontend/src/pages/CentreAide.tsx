@@ -121,11 +121,22 @@ function formatMAD(value: number): string {
 }
 
 function normalizeProducts(data: unknown): Product[] {
-  if (!Array.isArray(data)) {
-    throw new Error("L'API n'a pas renvoyé une liste de produits.")
+  let items: unknown[]
+
+  if (Array.isArray(data)) {
+    items = data
+  } else if (
+    typeof data === 'object' &&
+    data !== null &&
+    'value' in data &&
+    Array.isArray((data as { value?: unknown }).value)
+  ) {
+    items = (data as { value: unknown[] }).value
+  } else {
+    throw new Error("L'API n'a pas renvoyé une liste de produits valide.")
   }
 
-  return data.map((item: unknown, index: number) => {
+  return items.map((item: unknown, index: number) => {
     if (typeof item !== 'object' || item === null) {
       throw new Error(`Le produit numéro ${index + 1} est invalide.`)
     }
@@ -625,3 +636,4 @@ export default function CentreAide() {
     </div>
   )
 }
+

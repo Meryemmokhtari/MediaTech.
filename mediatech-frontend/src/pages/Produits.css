@@ -591,3 +591,17 @@
     width: 100%;
   }
 }
+/* MEDIA-TECH-PRODUCT-IMAGE-FIX */
+table td img,
+.product-image,
+.product-thumbnail {
+    display: block !important;
+    width: 64px !important;
+    height: 64px !important;
+    max-width: 64px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    padding: 4px;
+}
