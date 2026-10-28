@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { lazy, Suspense, useState } from 'react'
 import {
   Menu,
   Bell,
@@ -8,14 +8,14 @@ import {
 } from 'lucide-react'
 
 import Sidebar from './components/Sidebar'
-import Dashboard from './pages/Dashboard'
-import Produits from './pages/Produits'
-import Categories from './pages/Categories'
-import Stock from './pages/Stock'
-import Promotions from './pages/Promotions'
-import Statistiques from './pages/Statistiques'
-import Parametres from './pages/Parametres'
-import CentreAide from './pages/CentreAide'
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Produits = lazy(() => import('./pages/Produits'))
+const Categories = lazy(() => import('./pages/Categories'))
+const Stock = lazy(() => import('./pages/Stock'))
+const Promotions = lazy(() => import('./pages/Promotions'))
+const Statistiques = lazy(() => import('./pages/Statistiques'))
+const Parametres = lazy(() => import('./pages/Parametres'))
+const CentreAide = lazy(() => import('./pages/CentreAide'))
 import Login from './pages/Login'
 
 import './App.css'
@@ -208,7 +208,9 @@ export default function App() {
         </header>
 
         <main className="dashboard-content">
-          {renderPage()}
+          <Suspense fallback={<div className="page-loading" role="status">Chargement de la page...</div>}>
+            {renderPage()}
+          </Suspense>
 
           <footer className="dashboard-footer">
             <span>
@@ -221,3 +223,4 @@ export default function App() {
     </div>
   )
 }
+
