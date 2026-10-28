@@ -605,3 +605,39 @@ table td img,
     border: 1px solid #e5e7eb;
     padding: 4px;
 }
+
+/* Filtres avancés des produits */
+.products-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.products-filters select {
+  min-height: 42px;
+  max-width: 220px;
+  padding: 9px 12px;
+  border: 1px solid #e2e5eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #252a34;
+  font: inherit;
+  outline: none;
+}
+
+.products-filters select:focus {
+  border-color: #e53935;
+  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10);
+}
+
+@media (max-width: 900px) {
+  .products-filters {
+    width: 100%;
+  }
+
+  .products-filters select {
+    flex: 1 1 180px;
+    max-width: 100%;
+  }
+}

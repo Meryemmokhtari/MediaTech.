@@ -1,4 +1,4 @@
-﻿
+
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Package, Plus, Search, Pencil, Trash2, X, RefreshCw } from 'lucide-react'
 import './Produits.css'
@@ -18,6 +18,9 @@ const initialForm = {
 export default function Produits() {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('Toutes')
+  const [stockFilter, setStockFilter] = useState('Tous')
+  const [sortBy, setSortBy] = useState('name-asc')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -54,14 +57,45 @@ export default function Produits() {
     void loadProducts()
   }, [])
 
+  const categories = useMemo(
+    () => [...new Set(products.map(p => p.category?.trim() || 'Sans catÃ©gorie'))]
+      .sort((a, b) => a.localeCompare(b, 'fr')),
+    [products]
+  )
+
   const filteredProducts = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      (p.category || '').toLowerCase().includes(q) ||
-      (p.description || '').toLowerCase().includes(q)
-    )
-  }, [products, search])
+
+    const result = products.filter(p => {
+      const matchesSearch =
+        p.name.toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q)
+
+      const category = p.category?.trim() || 'Sans catÃ©gorie'
+      const matchesCategory = categoryFilter === 'Toutes' || category === categoryFilter
+
+      const stock = Number(p.stock) || 0
+      const matchesStock =
+        stockFilter === 'Tous' ||
+        (stockFilter === 'Disponible' && stock > 5) ||
+        (stockFilter === 'Faible' && stock > 0 && stock <= 5) ||
+        (stockFilter === 'Ã‰puisÃ©' && stock <= 0)
+
+      return matchesSearch && matchesCategory && matchesStock
+    })
+
+    return result.sort((a, b) => {
+      switch (sortBy) {
+        case 'name-desc': return b.name.localeCompare(a.name, 'fr')
+        case 'price-asc': return a.price - b.price
+        case 'price-desc': return b.price - a.price
+        case 'stock-asc': return a.stock - b.stock
+        case 'stock-desc': return b.stock - a.stock
+        default: return a.name.localeCompare(b.name, 'fr')
+      }
+    })
+  }, [products, search, categoryFilter, stockFilter, sortBy])
 
   function addProduct() {
     setEditing(null)
@@ -100,7 +134,7 @@ export default function Produits() {
         }
       )
 
-      if (!response.ok) throw new Error('Ã‰chec de lâ€™enregistrement.')
+      if (!response.ok) throw new Error('Ãƒâ€°chec de lÃ¢â‚¬â„¢enregistrement.')
 
       setShowForm(false)
       await loadProducts()
@@ -134,7 +168,7 @@ export default function Produits() {
         <div>
           <span className="products-eyebrow">INVENTAIRE</span>
           <h1>Produits</h1>
-          <p>GÃ©rez les produits de votre boutique MediaTech.</p>
+          <p>GÃƒÂ©rez les produits de votre boutique MediaTech.</p>
         </div>
 
         <button className="product-primary-btn" onClick={addProduct}>
@@ -163,7 +197,7 @@ export default function Produits() {
         <article className="product-stat-card">
           <Package size={25} />
           <div>
-            <p>UnitÃ©s en stock</p>
+            <p>UnitÃƒÂ©s en stock</p>
             <h2>{stockTotal}</h2>
           </div>
         </article>
@@ -193,7 +227,47 @@ export default function Produits() {
             />
           </div>
 
+          <div className="products-filters">
+            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} aria-label="Filtrer par catÃ©gorie">
+              <option value="Toutes">Toutes les catÃ©gories</option>
+              {categories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+
+            <select value={stockFilter} onChange={e => setStockFilter(e.target.value)} aria-label="Filtrer par stock">
+              <option value="Tous">Tous les stocks</option>
+              <option value="Disponible">Disponible (&gt; 5)</option>
+              <option value="Faible">Stock faible (1â€“5)</option>
+              <option value="Ã‰puisÃ©">Ã‰puisÃ© (0)</option>
+            </select>
+
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} aria-label="Trier les produits">
+              <option value="name-asc">Nom : A Ã  Z</option>
+              <option value="name-desc">Nom : Z Ã  A</option>
+              <option value="price-asc">Prix croissant</option>
+              <option value="price-desc">Prix dÃ©croissant</option>
+              <option value="stock-asc">Stock croissant</option>
+              <option value="stock-desc">Stock dÃ©croissant</option>
+            </select>
+
+            <button
+              type="button"
+              className="product-refresh-btn"
+              onClick={() => {
+                setSearch('')
+                setCategoryFilter('Toutes')
+                setStockFilter('Tous')
+                setSortBy('name-asc')
+              }}
+              title="RÃ©initialiser les filtres"
+            >
+              <X size={17} />
+            </button>
+          </div>
+
           <button
+            type="button"
             className="product-refresh-btn"
             onClick={() => void loadProducts()}
             title="Actualiser"
@@ -207,7 +281,7 @@ export default function Produits() {
         ) : filteredProducts.length === 0 ? (
           <div className="products-empty">
             <Package size={35} />
-            <h3>Aucun produit trouvÃ©</h3>
+            <h3>Aucun produit trouvÃƒÂ©</h3>
             <p>Ajoutez un produit ou changez votre recherche.</p>
           </div>
         ) : (
@@ -216,7 +290,7 @@ export default function Produits() {
               <thead>
                 <tr>
                   <th>Produit</th>
-                  <th>CatÃ©gorie</th>
+                  <th>CatÃƒÂ©gorie</th>
                   <th>Prix</th>
                   <th>Stock</th>
                   <th>Valeur du stock</th>
@@ -247,7 +321,7 @@ export default function Produits() {
                     </td>
                     <td>
                       <span className="product-category">
-                        {product.category || 'Non classÃ©'}
+                        {product.category || 'Non classÃƒÂ©'}
                       </span>
                     </td>
                     <td>{product.price.toLocaleString('fr-FR')} MAD</td>
@@ -257,7 +331,7 @@ export default function Produits() {
                           : product.stock <= 5 ? 'stock-badge stock-low'
                             : 'stock-badge stock-ok'
                       }>
-                        {product.stock === 0 ? 'Ã‰puisÃ©' : product.stock}
+                        {product.stock === 0 ? 'Ãƒâ€°puisÃƒÂ©' : product.stock}
                       </span>
                     </td>
                     <td>
@@ -346,7 +420,7 @@ export default function Produits() {
               </div>
 
               <label>
-                CatÃ©gorie *
+                CatÃƒÂ©gorie *
                 <input
                   required
                   value={form.category}
@@ -375,4 +449,5 @@ export default function Produits() {
     </main>
   )
 }
+
 
